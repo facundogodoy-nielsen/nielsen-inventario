@@ -4660,11 +4660,15 @@ function sbItemDrop(e, targetPanelId, targetSecId) {
 }
 
 
-initData();
-renderSidebar();
-renderDashboard();
-updateClock();
-setInterval(updateClock, 1000);
+document.addEventListener('DOMContentLoaded', function() {
+  initData();
+  renderSidebar();
+  renderDashboard();
+  updateClock();
+  setInterval(updateClock, 1000);
+  // Inicializar badge sync en offline por defecto
+  gasSyncSetStatus('offline');
+});
 
 // ══════════════════════════════════════════════════════════════════
 // BARCODE / QR — UNIVERSAL SCANNER ENGINE (NICTOM LCB6200W)
@@ -9385,60 +9389,57 @@ function gasSyncPush() {
   if (_gasSyncing) { _gasSyncTimer = setTimeout(gasSyncPush, 3000); return; }
   _gasSyncing = true;
   gasSyncSetStatus('saving');
+  // Usar no-cors para POST (evita preflight CORS desde GitHub Pages)
+  // El body va como text/plain para evitar preflight
   fetch(GAS_URL, {
     method: 'POST',
+    mode: 'no-cors',
     headers: { 'Content-Type': 'text/plain' },
     body: JSON.stringify({ state: state })
   })
-  .then(function(r){ return r.json(); })
-  .then(function(d){
+  .then(function() {
+    // no-cors retorna respuesta opaca - asumimos OK si no hubo error
     _gasSyncing = false;
-    if (d.ok) {
-      _gasLastSave = Date.now();
-      gasSyncSetStatus('ok');
-    } else {
-      gasSyncSetStatus('error');
-    }
+    _gasLastSave = Date.now();
+    gasSyncSetStatus('ok');
   })
-  .catch(function(){
+  .catch(function(e) {
     _gasSyncing = false;
+    console.warn('GAS sync error:', e);
     gasSyncSetStatus('error');
   });
 }
 
 function gasSyncPull() {
   gasSyncSetStatus('loading');
-  fetch(GAS_URL)
+  // GET con cors - el GAS script debe devolver headers CORS
+  fetch(GAS_URL + '?action=load', { method: 'GET', mode: 'cors' })
   .then(function(r){ return r.json(); })
   .then(function(d){
     if (d.ok && d.data) {
       var remote = JSON.parse(d.data);
       state = remote;
-      // Migrar sub-estados faltantes
-      if (!state.ropa)                state.ropa                = { prendas:[], personal:[], entregas:[] };
-      if (!state.aguagas)             state.aguagas             = { items:[], movimientos:[] };
-      if (!state.ropacama)            state.ropacama            = { items:[], movimientos:[] };
-      if (!state.herramientas)        state.herramientas        = { items:[], controles:[] };
-      if (!state.insumos)             state.insumos             = { areas:[], items:[], movimientos:[] };
-      if (!state.operativoInvierno)   state.operativoInvierno   = { items:[] };
+      if (!state.ropa)              state.ropa              = { prendas:[], personal:[], entregas:[] };
+      if (!state.aguagas)           state.aguagas           = { items:[], movimientos:[] };
+      if (!state.ropacama)          state.ropacama          = { items:[], movimientos:[] };
+      if (!state.herramientas)      state.herramientas      = { items:[], controles:[] };
+      if (!state.insumos)           state.insumos           = { areas:[], items:[], movimientos:[] };
+      if (!state.operativoInvierno) state.operativoInvierno = { items:[] };
       localStorage.setItem('nielsen_inventario', JSON.stringify(state));
       gasSyncSetStatus('ok');
-      // Refrescar la vista activa
       var activePanel = document.querySelector('.panel.active');
-      if (activePanel) {
-        var name = activePanel.id.replace('panel-', '');
-        renderPanel(name);
-      }
+      if (activePanel) renderPanel(activePanel.id.replace('panel-', ''));
       renderDashboard();
-      toast('✅ Datos cargados desde la nube', 'success');
+      toast('Datos cargados desde la nube', 'success');
     } else {
-      gasSyncSetStatus('error');
-      toast('No hay datos en la nube aún', 'info');
+      gasSyncSetStatus('offline');
+      toast('No hay datos en la nube todavía', 'info');
     }
   })
-  .catch(function(){
-    gasSyncSetStatus('error');
-    toast('❌ No se pudo conectar con la nube', 'error');
+  .catch(function(e){
+    console.warn('GAS pull error:', e);
+    gasSyncSetStatus('offline');
+    toast('Sin conexión a la nube — trabajando en modo local', 'info');
   });
 }
 
@@ -10033,10 +10034,6 @@ function gasSyncSetStatus(status) {
 
   /* Edit controls hidden in visitor mode */
   body.visitor-mode .edit-only { display:none !important; }
-  body.visitor-mode input[type="text"],
-  body.visitor-mode input[type="number"],
-  body.visitor-mode select,
-  body.visitor-mode textarea      { pointer-events:none !important; }
   body.visitor-mode .nav-item[onclick*="ingresos"],
   body.visitor-mode .nav-item[onclick*="egresos"],
   body.visitor-mode .nav-item[onclick*="traspaso"] { opacity:.4 !important;pointer-events:none !important; }
