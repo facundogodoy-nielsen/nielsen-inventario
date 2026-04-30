@@ -615,6 +615,10 @@
          box-shadow:0 0 6px #e05c1a;display:inline-block;animation:editorPulse 2s infinite"></span>
     <span style="font-family:Barlow Condensed,sans-serif;font-size:13px;font-weight:700;
          letter-spacing:.5px;color:#e05c1a;text-transform:uppercase">Modo Editor</span>
+    <button onclick="limpiarSeccionAbrir()" title="Limpiar datos de una sección"
+      style="background:none;border:none;color:#e05c1a;cursor:pointer;font-size:14px;
+             padding:0 4px;opacity:.7;transition:opacity .15s"
+      onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.7">🧹</button>
     <button onclick="pinLockApp()" title="Volver a modo lector"
       style="background:none;border:none;color:#e05c1a;cursor:pointer;font-size:16px;
              padding:0 0 0 2px;opacity:.7;transition:opacity .15s"
@@ -759,7 +763,7 @@
           <div class="page-title">Traspaso entre Depósitos</div>
           <div class="page-sub">Mové artículos de un depósito a otro</div>
         </div>
-        <button class="btn btn-primary" onclick="openModalTraspaso()">+ Nuevo Traspaso</button>
+        <button class="btn btn-primary edit-only" onclick="openModalTraspaso()">+ Nuevo Traspaso</button>
       </div>
 
       <div class="card">
@@ -777,7 +781,7 @@
           <div class="page-title">Alta de Artículos / Ingresos</div>
           <div class="page-sub">Registrá ingresos por compra, donación, devolución u otros motivos</div>
         </div>
-        <button class="btn btn-primary" onclick="openModalIngreso()">+ Registrar Ingreso</button>
+        <button class="btn btn-primary edit-only" onclick="openModalIngreso()">+ Registrar Ingreso</button>
       </div>
       <div class="card">
         <div class="card-header">Últimos Ingresos</div>
@@ -797,7 +801,7 @@
         <div style="display:flex;gap:8px">
           <button class="btn btn-secondary" title="Escanear código para egreso rápido"
                   onclick="openScanner('egQuickScan', egQuickScanCallback)" style="font-size:15px">▌▌▌ Escanear</button>
-          <button class="btn btn-primary" onclick="openModalEgreso()">+ Registrar Egreso</button>
+          <button class="btn btn-primary edit-only" onclick="openModalEgreso()">+ Registrar Egreso</button>
         </div>
       </div>
       <div class="card">
@@ -932,7 +936,7 @@
         </div>
         <div style="display:flex;gap:8px">
           <button class="btn btn-secondary" id="ropaBtnAddPersona" onclick="openModalPersona()">+ Persona</button>
-          <button class="btn btn-primary"   id="ropaBtnAddPrenda"  onclick="openModalPrenda()">+ Prenda</button>
+          <button class="btn btn-primary edit-only"   id="ropaBtnAddPrenda"  onclick="openModalPrenda()">+ Prenda</button>
         </div>
       </div>
 
@@ -977,7 +981,7 @@
           <select class="form-control" id="ropaCatFilter" style="width:auto" onchange="ropaRenderStock()">
             <option value="">Todas las categorías</option>
           </select>
-          <button class="btn btn-primary" onclick="openModalEntrega()">🎽 Registrar Entrega</button>
+          <button class="btn btn-primary edit-only" onclick="openModalEntrega()">🎽 Registrar Entrega</button>
         </div>
         <!-- Selection action bar -->
         <div id="ropaStockSelBar" style="display:flex;margin-bottom:10px;padding:8px 14px;
@@ -2082,6 +2086,10 @@ function initData() {
       if (item.limpio  === undefined) item.limpio   = 0;
       if (item.sucio   === undefined) item.sucio    = 0;
       if (item.descarte === undefined) item.descarte = 0;
+      // Limpiar sufijos "(limpio)", "(limpia)" del nombre
+      if (item.nombre) {
+        item.nombre = item.nombre.replace(/\s*\((limpio|limpia|sucio|sucia|descarte)\)\s*$/i, '').trim();
+      }
     });
     if (!state.herramientas)               state.herramientas               = { items:[], controles:[] };
     if (!state.herramientas.items)         state.herramientas.items         = [];
@@ -4335,7 +4343,7 @@ function alertaItem(a, nivel) {
       <div class="alert-title">${a.nombre} <span style="color:var(--text3);font-size:12px">(${a.categoria||'—'})</span></div>
       <div class="alert-desc">Stock: ${getStockTotal(a)} ${a.unidad||''} — Mínimo: ${a.min} — ${deps}</div>
     </div>
-    <button class="btn btn-sm btn-primary" onclick="openModalIngreso()">+ Reponer</button>
+    <button class="btn btn-sm btn-primary edit-only" onclick="openModalIngreso()">+ Reponer</button>
   </div>`;
 }
 
@@ -4446,6 +4454,11 @@ function sgGetAllItems() {
   return rows;
 }
 
+var _sgTab = 'stock'; // 'stock' | 'reservas'
+function sgSetTab(tab) {
+  _sgTab = tab;
+  renderStockGlobal();
+}
 function renderStockGlobal() {
   var rows  = sgGetAllItems();
   var deps  = state.depositos || [];
@@ -4453,6 +4466,43 @@ function renderStockGlobal() {
   var tbody = document.getElementById('stockGlobalTbody');
   var resumen = document.getElementById('sgResumen');
   if (!thead || !tbody) return;
+
+  // Inyectar tabs si no existen
+  var tabsBox = document.getElementById('sgTabs');
+  if (!tabsBox) {
+    var panel = document.getElementById('panel-stock');
+    if (panel) {
+      var div = document.createElement('div');
+      div.id = 'sgTabs';
+      div.style.cssText = 'display:flex;gap:6px;margin-bottom:14px';
+      var pendientes = (state.reservas||[]).filter(function(r){ return r.estado==='pendiente'; }).length;
+      var badge = pendientes ? '<span style="background:var(--accent);color:#fff;padding:1px 7px;border-radius:10px;font-size:11px;font-weight:700;margin-left:6px">' + pendientes + '</span>' : '';
+      div.innerHTML = '<button class="btn btn-sm" id="sgTabStock" onclick="sgSetTab(\'stock\')">📊 Stock</button>' +
+                      '<button class="btn btn-sm" id="sgTabReservas" onclick="sgSetTab(\'reservas\')">🔖 Reservas' + badge + '</button>';
+      panel.insertBefore(div, panel.children[1]);
+    }
+    tabsBox = document.getElementById('sgTabs');
+  }
+  // Marcar el tab activo
+  var btnStock = document.getElementById('sgTabStock');
+  var btnRes   = document.getElementById('sgTabReservas');
+  if (btnStock) btnStock.className = 'btn btn-sm ' + (_sgTab==='stock'?'btn-primary':'btn-secondary');
+  if (btnRes)   btnRes.className   = 'btn btn-sm ' + (_sgTab==='reservas'?'btn-primary':'btn-secondary');
+
+  // Mostrar/ocultar elementos según tab
+  var resumenEl = document.getElementById('sgResumen');
+  var tableCard = thead.closest('.card');
+  if (_sgTab === 'reservas') {
+    if (resumenEl) resumenEl.style.display = 'none';
+    if (tableCard) tableCard.style.display = 'none';
+    sgRenderReservas();
+    return;
+  } else {
+    if (resumenEl) resumenEl.style.display = 'grid';
+    if (tableCard) tableCard.style.display = '';
+    var resWrap = document.getElementById('sgReservasWrap');
+    if (resWrap) resWrap.style.display = 'none';
+  }
 
   // ── Resumen cards ──
   var total    = rows.length;
@@ -4640,6 +4690,166 @@ function sgConfirmarReserva(total) {
   toast('Reserva ' + oc + ' registrada (' + selected.length + ' ítem' + (selected.length!==1?'s':'') + ')', 'success');
 }
 
+function sgRenderReservas() {
+  var panel = document.getElementById('panel-stock');
+  if (!panel) return;
+  var wrap = document.getElementById('sgReservasWrap');
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.id = 'sgReservasWrap';
+    panel.appendChild(wrap);
+  }
+  wrap.style.display = '';
+  var reservas = (state.reservas || []).slice().reverse();
+
+  if (!reservas.length) {
+    wrap.innerHTML = '<div class="empty-state"><div class="empty-icon">🔖</div><p>Sin reservas registradas todavía. Las reservas se generan desde el botón <strong>🔖 Reservar</strong> en la pestaña Stock.</p></div>';
+    return;
+  }
+
+  var pendientes = reservas.filter(function(r){ return r.estado==='pendiente'; }).length;
+  var revisar    = reservas.filter(function(r){ return r.estado==='revision'; }).length;
+  var aprobadas  = reservas.filter(function(r){ return r.estado==='aprobada'; }).length;
+  var rechazadas = reservas.filter(function(r){ return r.estado==='rechazada'; }).length;
+
+  var html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:20px">';
+  html += '<div class="card" style="padding:14px 16px;border-left:4px solid #d4951a"><div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:4px">⏳ PENDIENTES</div><div style="font-size:36px;font-weight:700;font-family:Barlow Condensed,sans-serif;color:#d4951a">' + pendientes + '</div></div>';
+  html += '<div class="card" style="padding:14px 16px;border-left:4px solid var(--blue2)"><div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:4px">🔍 EN REVISIÓN</div><div style="font-size:36px;font-weight:700;font-family:Barlow Condensed,sans-serif;color:var(--blue2)">' + revisar + '</div></div>';
+  html += '<div class="card" style="padding:14px 16px;border-left:4px solid var(--green2)"><div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:4px">✅ APROBADAS</div><div style="font-size:36px;font-weight:700;font-family:Barlow Condensed,sans-serif;color:var(--green2)">' + aprobadas + '</div></div>';
+  html += '<div class="card" style="padding:14px 16px;border-left:4px solid var(--red2)"><div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:4px">❌ RECHAZADAS</div><div style="font-size:36px;font-weight:700;font-family:Barlow Condensed,sans-serif;color:var(--red2)">' + rechazadas + '</div></div>';
+  html += '</div>';
+
+  reservas.forEach(function(r) {
+    var stColor = r.estado==='aprobada' ? 'var(--green2)' : r.estado==='rechazada' ? 'var(--red2)' : r.estado==='revision' ? 'var(--blue2)' : '#d4951a';
+    var stIco   = r.estado==='aprobada' ? '✅' : r.estado==='rechazada' ? '❌' : r.estado==='revision' ? '🔍' : '⏳';
+    var stLabel = r.estado==='aprobada' ? 'Aprobada' : r.estado==='rechazada' ? 'Rechazada' : r.estado==='revision' ? 'En Revisión' : 'Pendiente';
+
+    html += '<div class="card" style="margin-bottom:14px;border-left:4px solid ' + stColor + '">';
+    html += '<div style="padding:14px 18px;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px">';
+    html += '<div style="flex:1;min-width:200px">';
+    html += '<div style="font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:700">' + (r.oc || 'Sin OC') + '</div>';
+    html += '<div style="font-size:11px;color:var(--text3);margin-top:2px">📅 ' + r.fecha + (r.solicitante ? ' · 👤 ' + r.solicitante : '') + '</div>';
+    if (r.obs) html += '<div style="font-size:12px;color:var(--text2);margin-top:6px;font-style:italic">"' + r.obs + '"</div>';
+    html += '</div>';
+    html += '<div style="text-align:right">';
+    html += '<span class="badge" style="background:' + stColor + '18;color:' + stColor + ';border:1px solid ' + stColor + '40;font-size:11px">' + stIco + ' ' + stLabel + '</span>';
+    if (r.fechaResolucion) html += '<div style="font-size:10px;color:var(--text3);margin-top:3px">' + r.fechaResolucion + '</div>';
+    html += '</div></div>';
+
+    // Items
+    html += '<div style="border-top:1px solid var(--border);padding:10px 18px;background:var(--bg3)">';
+    html += '<table style="width:100%;font-size:12px">';
+    (r.items||[]).forEach(function(it) {
+      html += '<tr><td style="padding:3px 0">' + it.nombre + '</td><td style="text-align:right;font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;padding:3px 0">' + it.cantidad + ' ' + (it.unidad||'') + '</td></tr>';
+    });
+    html += '</table></div>';
+
+    // Acciones
+    html += '<div class="edit-only" style="padding:10px 18px;display:flex;gap:8px;flex-wrap:wrap;border-top:1px solid var(--border)">';
+    if (r.estado === 'pendiente') {
+      html += '<button class="btn btn-sm btn-secondary" data-rid="' + r.id + '" onclick="sgReservaCambiarEstado(this.dataset.rid,\'revision\')">🔍 Pasar a Revisión</button>';
+      html += '<button class="btn btn-sm" style="background:var(--green2);color:#fff;border-color:var(--green2)" data-rid="' + r.id + '" onclick="sgReservaAprobar(this.dataset.rid)">✅ Aprobar y Descontar</button>';
+      html += '<button class="btn btn-sm btn-danger" data-rid="' + r.id + '" onclick="sgReservaCambiarEstado(this.dataset.rid,\'rechazada\')">❌ Rechazar</button>';
+    } else if (r.estado === 'revision') {
+      html += '<button class="btn btn-sm" style="background:var(--green2);color:#fff;border-color:var(--green2)" data-rid="' + r.id + '" onclick="sgReservaAprobar(this.dataset.rid)">✅ Aprobar y Descontar</button>';
+      html += '<button class="btn btn-sm btn-danger" data-rid="' + r.id + '" onclick="sgReservaCambiarEstado(this.dataset.rid,\'rechazada\')">❌ Rechazar</button>';
+      html += '<button class="btn btn-sm btn-secondary" data-rid="' + r.id + '" onclick="sgReservaCambiarEstado(this.dataset.rid,\'pendiente\')">↩️ Volver a Pendiente</button>';
+    } else if (r.estado === 'aprobada' || r.estado === 'rechazada') {
+      html += '<button class="btn btn-sm btn-danger edit-only" data-rid="' + r.id + '" onclick="sgReservaEliminar(this.dataset.rid)">🗑 Eliminar registro</button>';
+    }
+    html += '</div></div>';
+  });
+
+  wrap.innerHTML = html;
+}
+
+function sgReservaCambiarEstado(rid, nuevoEstado) {
+  var r = (state.reservas||[]).find(function(x){ return x.id===rid; });
+  if (!r) return;
+  r.estado = nuevoEstado;
+  if (nuevoEstado === 'rechazada') r.fechaResolucion = now();
+  save();
+  sgRenderReservas();
+  toast('Reserva actualizada', 'success');
+}
+
+function sgReservaAprobar(rid) {
+  var r = (state.reservas||[]).find(function(x){ return x.id===rid; });
+  if (!r) return;
+  if (!confirm('¿Aprobar la reserva ' + r.oc + ' y descontar las cantidades del stock?')) return;
+
+  // Descontar stock real para cada item
+  var noEncontrados = [];
+  (r.items||[]).forEach(function(it) {
+    var qty = it.cantidad || 0;
+    var found = false;
+
+    if (it.modulo === 'articulo') {
+      var art = state.articulos.find(function(a){ return a.nombre === it.nombre; });
+      if (art && art.stock) {
+        // Descontar del primer depósito que tenga stock
+        var deps = Object.keys(art.stock);
+        var rest = qty;
+        for (var i = 0; i < deps.length && rest > 0; i++) {
+          var disp = art.stock[deps[i]] || 0;
+          var take = Math.min(disp, rest);
+          art.stock[deps[i]] = disp - take;
+          rest -= take;
+        }
+        found = true;
+      }
+    } else if (it.modulo === 'herramienta') {
+      var h = state.herramientas.items.find(function(x){ return x.nombre === it.nombre; });
+      if (h) { h.cantidad = Math.max(0, (h.cantidad||0) - qty); found = true; }
+    } else if (it.modulo === 'aguagas') {
+      var ag = state.aguagas.items.find(function(x){ return x.nombre === it.nombre; });
+      if (ag && ag.stock) {
+        var deps2 = Object.keys(ag.stock);
+        var rest2 = qty;
+        for (var j = 0; j < deps2.length && rest2 > 0; j++) {
+          var disp2 = ag.stock[deps2[j]] || 0;
+          var take2 = Math.min(disp2, rest2);
+          ag.stock[deps2[j]] = disp2 - take2;
+          rest2 -= take2;
+        }
+        found = true;
+      }
+    } else if (it.modulo === 'ropacama') {
+      var rc = state.ropacama.items.find(function(x){ return x.nombre === it.nombre; });
+      if (rc) { rc.limpio = Math.max(0, (rc.limpio||0) - qty); found = true; }
+    } else if (it.modulo === 'insumo') {
+      var ins = state.insumos.items.find(function(x){ return x.nombre === it.nombre; });
+      if (ins) { ins.stock = Math.max(0, (ins.stock||0) - qty); found = true; }
+    } else if (it.modulo === 'opInvierno') {
+      var op = state.operativoInvierno.items.find(function(x){ return x.nombre === it.nombre; });
+      if (op) { op.cantActual = Math.max(0, (op.cantActual||0) - qty); found = true; }
+    }
+
+    if (!found) noEncontrados.push(it.nombre);
+  });
+
+  r.estado = 'aprobada';
+  r.fechaResolucion = now();
+  save();
+  sgRenderReservas();
+
+  if (noEncontrados.length) {
+    toast('Aprobada con advertencia: no se descontaron ' + noEncontrados.length + ' ítem(s)', 'info');
+  } else {
+    toast('✅ Reserva aprobada y stock descontado', 'success');
+  }
+}
+
+function sgReservaEliminar(rid) {
+  var r = (state.reservas||[]).find(function(x){ return x.id===rid; });
+  if (!r || !confirm('¿Eliminar el registro de la reserva ' + r.oc + '?')) return;
+  state.reservas = state.reservas.filter(function(x){ return x.id !== rid; });
+  save();
+  sgRenderReservas();
+  toast('Registro eliminado', 'info');
+}
+
+
 // ============================================================
 // HELPERS
 // ============================================================
@@ -4787,6 +4997,7 @@ function pinConfirm() {
 }
 
 function pinSetMode(mode) {
+  var prevMode = _pinMode;
   _pinMode = mode;
   sessionStorage.setItem(PIN_KEY, mode);
   const readerBadge = document.getElementById('readerBadge');
@@ -4796,10 +5007,20 @@ function pinSetMode(mode) {
     if (readerBadge) readerBadge.style.display = 'none';
     if (editorBadge) editorBadge.style.display = 'flex';
   } else {
-    // reader mode
     document.body.classList.add('visitor-mode');
     if (readerBadge) readerBadge.style.display = 'flex';
     if (editorBadge) editorBadge.style.display = 'none';
+  }
+  // Refrescar la vista activa para que los botones edit-only se muestren/oculten correctamente
+  if (prevMode !== mode) {
+    try {
+      var activePanel = document.querySelector('.panel.active');
+      if (activePanel) {
+        var name = activePanel.id.replace('panel-', '');
+        renderPanel(name);
+      }
+      renderDashboard();
+    } catch(e) {}
   }
 }
 
@@ -5117,6 +5338,7 @@ document.addEventListener('DOMContentLoaded', function() {
   gasSyncSetStatus('loading');
   gasSyncPull({ silent: true });   // Pull inicial al abrir la app
   gasAutoPullStart();               // Pull cada 20s para ver cambios de otros dispositivos
+  aplicarDeepLink();                // Si la URL incluye #stock, navegar directo
 });
 
 // ══════════════════════════════════════════════════════════════════
@@ -6093,17 +6315,17 @@ function aguagasGuardarMovimiento() {
 // ROPA DE CAMA
 // ══════════════════════════════════════════════════════════════════
 const ROPACAMA_DEFAULTS = [
-  'Sábana lisa (limpia)',
-  'Sábana ajustable (limpia)',
-  'Funda de almohada (limpia)',
-  'Frazada polar (limpia)',
-  'Frazada de lana (limpia)',
-  'Almohada (limpia)',
-  'Cubre cama jean (limpio)',
-  'Cubre cama blanco (limpio)',
-  'Pie de cama (limpio)',
-  'Toalla (limpia)',
-  'Toallón (limpio)',
+  'Sábana lisa',
+  'Sábana ajustable',
+  'Funda de almohada',
+  'Frazada polar',
+  'Frazada de lana',
+  'Almohada',
+  'Cubre cama jean',
+  'Cubre cama blanco',
+  'Pie de cama',
+  'Toalla',
+  'Toallón',
 ];
 
 function ropacamaInit() {
@@ -6115,18 +6337,34 @@ function ropacamaInit() {
   }
 }
 
+var _rcTab = 'stock'; // 'stock' | 'historial'
+function rcSetTab(tab) {
+  _rcTab = tab;
+  renderRopacama();
+}
 function renderRopacama() {
   ropacamaInit();
   var div = document.getElementById('ropacamaContent');
   if (!div) return;
   var items = state.ropacama.items || [];
 
+  // Tabs
+  var tabsHtml = '<div style="display:flex;gap:6px;margin-bottom:18px">' +
+    '<button class="btn btn-sm ' + (_rcTab==='stock'?'btn-primary':'btn-secondary') + '" onclick="rcSetTab(\'stock\')">📋 Stock</button>' +
+    '<button class="btn btn-sm ' + (_rcTab==='historial'?'btn-primary':'btn-secondary') + '" onclick="rcSetTab(\'historial\')">🕐 Historial de Movimientos</button>' +
+    '</div>';
+
+  if (_rcTab === 'historial') {
+    div.innerHTML = tabsHtml + rcRenderHistorial();
+    return;
+  }
+
   var totalLimpio   = items.reduce(function(s,i){ return s+(i.limpio||0); }, 0);
   var totalSucio    = items.reduce(function(s,i){ return s+(i.sucio||0); }, 0);
   var totalDescarte = items.reduce(function(s,i){ return s+(i.descarte||0); }, 0);
   var bajoMin       = items.filter(function(i){ return (i.limpio||0) < (i.min||5); }).length;
 
-  var html = '';
+  var html = tabsHtml;
 
   // Resumen cards
   html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:20px">';
@@ -6224,6 +6462,37 @@ function rcAjustar(itemId, seccion, delta) {
   save();
   renderRopacama();
 }
+
+function rcRenderHistorial() {
+  var movs = (state.ropacama.movimientos || []).slice().reverse();
+  if (!movs.length) {
+    return '<div class="empty-state"><div class="empty-icon">🕐</div><p>Sin movimientos registrados todavía.</p></div>';
+  }
+  var items = state.ropacama.items || [];
+  var html = '<div class="card"><div style="overflow-x:auto"><table class="tbl">';
+  html += '<thead><tr><th>Fecha</th><th>Artículo</th><th>Sección</th><th>Tipo</th><th style="text-align:center">Cantidad</th><th>Operador</th><th>Observaciones</th></tr></thead><tbody>';
+  movs.forEach(function(m) {
+    var item = items.find(function(i){ return i.id === m.itemId; });
+    var sec  = m.seccion || '—';
+    var secColor = sec==='limpio' ? 'var(--green2)' : sec==='sucio' ? 'var(--yellow2)' : sec==='descarte' ? 'var(--red2)' : 'var(--text3)';
+    var secLabel = sec==='limpio' ? '✅ Limpio' : sec==='sucio' ? '🔄 Sucio' : sec==='descarte' ? '🗑 P/Descarte' : sec;
+    var tipoBadge = m.tipo === 'entrada' ? '<span class="badge badge-green">⬇ Entrada</span>' :
+                    m.tipo === 'salida'  ? '<span class="badge badge-red">⬆ Salida</span>'  :
+                    '<span class="badge badge-gray">' + m.tipo + '</span>';
+    html += '<tr>' +
+      '<td style="font-size:11px;color:var(--text2)">' + m.fecha + '</td>' +
+      '<td>' + (item ? item.nombre : '—') + '</td>' +
+      '<td><span style="color:' + secColor + ';font-size:12px;font-weight:600">' + secLabel + '</span></td>' +
+      '<td>' + tipoBadge + '</td>' +
+      '<td style="text-align:center;font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:700">' + m.cantidad + '</td>' +
+      '<td style="font-size:11px;color:var(--text3)">' + (m.operador||'—') + '</td>' +
+      '<td style="font-size:11px;color:var(--text3)">' + (m.obs||'') + '</td>' +
+      '</tr>';
+  });
+  html += '</tbody></table></div></div>';
+  return html;
+}
+
 function ropacamaAgregarItem() {
   const nombre = prompt('Nombre del artículo de ropa de cama:');
   if (!nombre || !nombre.trim()) return;
@@ -9918,117 +10187,129 @@ function opInviernoGuardarImport() {
 
 
 // ══════════════════════════════════════════════════════════════════
-// GOOGLE APPS SCRIPT — Sincronización cross-device
+// SUPABASE — Base de datos cloud + Realtime sync
 // ══════════════════════════════════════════════════════════════════
-var GAS_URL       = 'https://script.google.com/macros/s/AKfycbx7XpdE4QVvNpGOzS8Bki9Yx6jXYn9EWdLQG4QyDwoyETyeQbBO0EjW4poOCTX0is_Tvw/exec';
-var _gasSyncTimer = null;
-var _gasSyncing   = false;
-var _gasLastSave  = 0;
-var _gasLastPull  = 0;
-var _gasPullTimer = null;
-var _gasSilent    = true;  // silenciar errores repetidos
+var SUPABASE_URL  = 'https://mjkyehhakbeqbldmnthb.supabase.co';
+var SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1qa3llaGhha2JlcWJsZG1udGhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1Njc3NDEsImV4cCI6MjA5MzE0Mzc0MX0.AchyW-d3K7hcgvw-6TpnjMyCjFpeYO21ZbzpZDTWziU';
+var REST_URL      = SUPABASE_URL + '/rest/v1/app_state?id=eq.1';
+
+// Aliases para mantener compatibilidad con código previo (gasSyncSchedule, gasSyncPull, etc.)
+var _sbSyncTimer  = null;
+var _sbSyncing    = false;
+var _sbLastSave   = 0;
+var _sbSilent     = false;
+var _sbPullTimer  = null;
+
+function sbHeaders() {
+  return {
+    'apikey':        SUPABASE_KEY,
+    'Authorization': 'Bearer ' + SUPABASE_KEY,
+    'Content-Type':  'application/json',
+    'Prefer':        'return=minimal'
+  };
+}
 
 // Programar push (debounced)
 function gasSyncSchedule() {
-  clearTimeout(_gasSyncTimer);
-  _gasSyncTimer = setTimeout(gasSyncPush, 1500);
+  clearTimeout(_sbSyncTimer);
+  _sbSyncTimer = setTimeout(sbPush, 1500);
   gasSyncSetStatus('pending');
 }
 
-// PUSH: guardar state en Google Sheets
-// Usa application/x-www-form-urlencoded para evitar preflight CORS
-// GAS recibe el JSON en e.parameter.payload
-function gasSyncPush() {
-  if (_gasSyncing) { _gasSyncTimer = setTimeout(gasSyncPush, 2000); return; }
-  _gasSyncing = true;
+// PUSH: actualizar el state en Supabase
+function sbPush() {
+  if (_sbSyncing) { _sbSyncTimer = setTimeout(sbPush, 2000); return; }
+  _sbSyncing = true;
   gasSyncSetStatus('saving');
 
-  var formData = new URLSearchParams();
-  formData.append('payload', JSON.stringify({ state: state }));
+  var body = JSON.stringify({
+    state_data: state,
+    updated_at: new Date().toISOString()
+  });
 
-  fetch(GAS_URL, {
-    method: 'POST',
-    body: formData
+  fetch(REST_URL, {
+    method:  'PATCH',
+    headers: sbHeaders(),
+    body:    body
   })
-  .then(function(r){ return r.text(); })
-  .then(function(txt){
-    _gasSyncing = false;
-    try {
-      var d = JSON.parse(txt);
-      if (d.ok) {
-        _gasLastSave = Date.now();
-        gasSyncSetStatus('ok');
-      } else {
-        gasSyncSetStatus('error');
-        if (!_gasSilent) console.warn('GAS push:', d.error);
-      }
-    } catch(e) {
-      // Respuesta no es JSON pero tampoco error de red: asumir OK
-      _gasLastSave = Date.now();
+  .then(function(r) {
+    _sbSyncing = false;
+    if (r.ok) {
+      _sbLastSave = Date.now();
       gasSyncSetStatus('ok');
+    } else {
+      gasSyncSetStatus('error');
+      if (!_sbSilent) console.warn('Supabase push:', r.status, r.statusText);
     }
   })
-  .catch(function(e){
-    _gasSyncing = false;
+  .catch(function(e) {
+    _sbSyncing = false;
     gasSyncSetStatus('error');
-    if (!_gasSilent) console.warn('GAS push error:', e.message);
+    if (!_sbSilent) console.warn('Supabase push error:', e.message);
   });
 }
 
-// PULL: cargar state desde Google Sheets
+// PULL: cargar state desde Supabase
 function gasSyncPull(opts) {
   opts = opts || {};
   var silent = opts.silent === true;
   if (!silent) gasSyncSetStatus('loading');
 
-  fetch(GAS_URL + '?action=load&t=' + Date.now(), { method: 'GET' })
-  .then(function(r){ return r.json(); })
-  .then(function(d){
-    _gasLastPull = Date.now();
-    if (d.ok && d.data) {
-      var remote = JSON.parse(d.data);
-      // Solo aplicar si es más reciente o distinto (comparar tamaños)
-      var localStr = JSON.stringify(state);
+  fetch(REST_URL + '&select=state_data,updated_at', {
+    method:  'GET',
+    headers: sbHeaders()
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(rows) {
+    if (Array.isArray(rows) && rows.length > 0 && rows[0].state_data) {
+      var remote = rows[0].state_data;
+      // Si el remote está vacío, mantener el state local
+      if (Object.keys(remote).length === 0) {
+        gasSyncSetStatus('ok');
+        return;
+      }
+      // Comparar para evitar re-renderizar si es igual
+      var localStr  = JSON.stringify(state);
       var remoteStr = JSON.stringify(remote);
       if (localStr === remoteStr) {
         gasSyncSetStatus('ok');
         return;
       }
-      // Aplicar state remoto y migrar sub-estados faltantes
+      // Aplicar state remoto
       state = remote;
-      if (!state.depositos)           state.depositos           = [];
-      if (!state.articulos)           state.articulos           = [];
-      if (!state.movimientos)         state.movimientos         = [];
-      if (!state.ropa)                state.ropa                = { prendas:[], personal:[], entregas:[] };
-      if (!state.aguagas)             state.aguagas             = { items:[], movimientos:[] };
-      if (!state.ropacama)            state.ropacama            = { items:[], movimientos:[] };
-      if (!state.herramientas)        state.herramientas        = { items:[], controles:[] };
-      if (!state.insumos)             state.insumos             = { areas:[], items:[], movimientos:[] };
-      if (!state.operativoInvierno)   state.operativoInvierno   = { items:[] };
-      if (!state.reservas)            state.reservas            = [];
-      if (!state.subDepositos)        state.subDepositos        = {};
-      if (!state.herrGrupos)          state.herrGrupos          = {};
+      // Migrar sub-estados faltantes
+      if (!state.depositos)         state.depositos         = [];
+      if (!state.articulos)         state.articulos         = [];
+      if (!state.movimientos)       state.movimientos       = [];
+      if (!state.ropa)              state.ropa              = { prendas:[], personal:[], entregas:[] };
+      if (!state.aguagas)           state.aguagas           = { items:[], movimientos:[] };
+      if (!state.ropacama)          state.ropacama          = { items:[], movimientos:[] };
+      if (!state.herramientas)      state.herramientas      = { items:[], controles:[] };
+      if (!state.insumos)           state.insumos           = { areas:[], items:[], movimientos:[] };
+      if (!state.operativoInvierno) state.operativoInvierno = { items:[] };
+      if (!state.reservas)          state.reservas          = [];
+      if (!state.subDepositos)      state.subDepositos      = {};
+      if (!state.herrGrupos)        state.herrGrupos        = {};
       localStorage.setItem('nielsen_inventario', JSON.stringify(state));
       gasSyncSetStatus('ok');
       // Refrescar vistas
-      var activePanel = document.querySelector('.panel.active');
-      if (activePanel) {
-        var name = activePanel.id.replace('panel-', '');
-        renderPanel(name);
-      }
-      try { renderDashboard(); renderSidebar(); } catch(e){}
-      if (!silent) toast('✅ Datos actualizados desde la nube', 'success');
+      try {
+        var activePanel = document.querySelector('.panel.active');
+        if (activePanel) {
+          var name = activePanel.id.replace('panel-', '');
+          renderPanel(name);
+        }
+        renderDashboard();
+        renderSidebar();
+      } catch(e) {}
+      if (!silent) toast('Datos sincronizados desde la nube', 'success');
     } else {
-      gasSyncSetStatus(d.ok ? 'ok' : 'offline');
-      if (!silent) toast('No hay datos en la nube aún', 'info');
+      gasSyncSetStatus('ok');
     }
   })
-  .catch(function(e){
+  .catch(function(e) {
     gasSyncSetStatus('offline');
-    if (!silent && !_gasSilent) {
-      console.warn('GAS pull error:', e.message);
-      toast('Sin conexión a la nube — modo local', 'info');
-    }
+    if (!silent && !_sbSilent) console.warn('Supabase pull error:', e.message);
   });
 }
 
@@ -10053,15 +10334,75 @@ function gasSyncSetStatus(status) {
   if (text) text.textContent  = s.txt;
 }
 
-// Auto-pull cada 20 segundos para detectar cambios de otros dispositivos
+// REALTIME — Conectar al WebSocket de Supabase para recibir cambios
+var _sbRealtimeWs = null;
+var _sbReconnectTimer = null;
+
 function gasAutoPullStart() {
-  if (_gasPullTimer) clearInterval(_gasPullTimer);
-  _gasPullTimer = setInterval(function() {
-    // Solo hacer pull si no hay cambios locales pendientes de push
-    if (!_gasSyncing && !_gasSyncTimer) {
+  // 1) Suscribirse a Realtime via WebSocket
+  sbConnectRealtime();
+  // 2) Polling de respaldo cada 30s por si el WS se cae sin reconectar
+  if (_sbPullTimer) clearInterval(_sbPullTimer);
+  _sbPullTimer = setInterval(function() {
+    if (!_sbSyncing && !_sbSyncTimer) {
       gasSyncPull({ silent: true });
     }
-  }, 20000);
+  }, 30000);
+}
+
+function sbConnectRealtime() {
+  try {
+    if (_sbRealtimeWs) { try { _sbRealtimeWs.close(); } catch(e){} }
+    var wsUrl = SUPABASE_URL.replace('https://','wss://') + '/realtime/v1/websocket?apikey=' + encodeURIComponent(SUPABASE_KEY) + '&vsn=1.0.0';
+    var ws = new WebSocket(wsUrl);
+    _sbRealtimeWs = ws;
+
+    ws.onopen = function() {
+      // Suscribirse a cambios en la tabla app_state
+      ws.send(JSON.stringify({
+        topic: 'realtime:public:app_state',
+        event: 'phx_join',
+        payload: {
+          config: {
+            postgres_changes: [{ event: '*', schema: 'public', table: 'app_state' }]
+          }
+        },
+        ref:   '1'
+      }));
+      // Heartbeat cada 30s
+      if (ws._hb) clearInterval(ws._hb);
+      ws._hb = setInterval(function() {
+        if (ws.readyState === 1) {
+          ws.send(JSON.stringify({ topic:'phoenix', event:'heartbeat', payload:{}, ref:'2' }));
+        }
+      }, 30000);
+    };
+
+    ws.onmessage = function(ev) {
+      try {
+        var msg = JSON.parse(ev.data);
+        // Detectar cambios en la tabla
+        if (msg.event === 'postgres_changes' && msg.payload && msg.payload.data) {
+          // Solo aplicar si NO somos nosotros los que acabamos de hacer push (debounce 3s)
+          if (Date.now() - _sbLastSave < 3000) return;
+          gasSyncPull({ silent: true });
+        }
+      } catch(e) {}
+    };
+
+    ws.onclose = function() {
+      if (ws._hb) clearInterval(ws._hb);
+      // Reconectar en 5s
+      clearTimeout(_sbReconnectTimer);
+      _sbReconnectTimer = setTimeout(sbConnectRealtime, 5000);
+    };
+
+    ws.onerror = function() {
+      // Cerrará automáticamente y onclose reconectará
+    };
+  } catch(e) {
+    console.warn('Realtime connect error:', e.message);
+  }
 }
 
 
@@ -10419,6 +10760,227 @@ document.addEventListener('click', function(e) {
   }
 });
 
+
+
+// ══════════════════════════════════════════════════════════════════
+// DEEP LINKS — Acceso directo a paneles vía URL
+// Ejemplos:
+//   https://tuusuario.github.io/nielsen-inventario/#stock
+//   https://tuusuario.github.io/nielsen-inventario/?go=stock
+// ══════════════════════════════════════════════════════════════════
+function aplicarDeepLink() {
+  var hash    = (window.location.hash || '').replace('#','').toLowerCase();
+  var params  = new URLSearchParams(window.location.search);
+  var goParam = (params.get('go') || '').toLowerCase();
+  var target  = hash || goParam;
+  if (!target) return;
+
+  // Mapa de aliases comunes
+  var alias = {
+    'stock':      'stock',
+    'stockglobal':'stock',
+    'reservas':   'stock',
+    'pedidos':    'stock',
+    'compras':    'stock',
+    'depositos':  'depositos',
+    'articulos':  'articulos',
+    'herramientas':'herramientas',
+    'aguagas':    'aguagas',
+    'ropacama':   'ropacama',
+    'insumos':    'insumos',
+    'opinvierno': 'opInvierno',
+    'invierno':   'opInvierno',
+    'basesj':     'basesj',
+    'vehiculos':  'vehiculos',
+    'campamentos':'campamentos',
+  };
+  var panelName = alias[target];
+  if (panelName) {
+    setTimeout(function() {
+      showPanel(panelName);
+      // Si es reservas explícitamente, también activar el tab
+      if (target === 'reservas' || target === 'pedidos' || target === 'compras') {
+        if (typeof sgSetTab === 'function') setTimeout(function(){ sgSetTab('reservas'); }, 300);
+      }
+    }, 200);
+  }
+}
+window.addEventListener('hashchange', aplicarDeepLink);
+
+
+
+// ══════════════════════════════════════════════════════════════════
+// LIMPIAR SECCIÓN — Triple confirmación con PIN
+// ══════════════════════════════════════════════════════════════════
+var _limpiarSecActiva = null;  // sección seleccionada para limpiar
+
+// Catálogo de secciones limpiables — id, label, función que limpia los datos
+var SECCIONES_LIMPIABLES = [
+  { id:'depositos',     label:'🏭 Depósitos',          desc:'Borra todos los depósitos cargados (mantiene tipos)', limpia:function(){ state.depositos = []; state.subDepositos = {}; } },
+  { id:'articulos',     label:'📦 Artículos',          desc:'Borra todo el catálogo de artículos y su stock',      limpia:function(){ state.articulos = []; state.artEliminados = []; } },
+  { id:'movimientos',   label:'📋 Movimientos',        desc:'Borra el historial de ingresos/egresos/traspasos',    limpia:function(){ state.movimientos = []; } },
+  { id:'herramientas',  label:'🔧 Herramientas',       desc:'Borra todas las herramientas, controles y grupos',    limpia:function(){ state.herramientas = { items:[], controles:[], controlProgramados:[] }; state.herrGrupos = {}; } },
+  { id:'aguagas',       label:'💧 Agua y Gas',         desc:'Borra los items y movimientos de Agua y Gas',         limpia:function(){ state.aguagas = { items:[], movimientos:[] }; } },
+  { id:'ropa',          label:'👕 Ropa (equipamiento)', desc:'Borra prendas, personal y entregas',                  limpia:function(){ state.ropa = { prendas:[], personal:[], entregas:[] }; } },
+  { id:'ropacama',      label:'🛏 Ropa de Cama',       desc:'Borra items y movimientos de ropa de cama',           limpia:function(){ state.ropacama = { items:[], movimientos:[] }; } },
+  { id:'insumos',       label:'🧴 Insumos',            desc:'Borra áreas, items y movimientos de insumos',         limpia:function(){ state.insumos = { areas:[], items:[], movimientos:[] }; } },
+  { id:'opInvierno',    label:'❄️ Operativo Invierno', desc:'Borra el checklist completo del operativo',           limpia:function(){ state.operativoInvierno = { items:[] }; } },
+  { id:'reservas',      label:'🔖 Reservas',           desc:'Borra el historial de reservas y solicitudes',        limpia:function(){ state.reservas = []; } },
+];
+
+// PASO 1: PIN inicial para autorizar el uso de la herramienta
+function limpiarSeccionAbrir() {
+  // El botón solo es visible en modo editor (por estar dentro del editorBadge)
+  // pero igual pedimos PIN como primera barrera
+  var pin = prompt('🧹 LIMPIAR SECCIÓN\n\nIngresá el PIN de administrador para continuar:');
+  if (pin === null) return;
+  if (pin !== PIN_ADMIN) {
+    toast('PIN incorrecto', 'error');
+    return;
+  }
+  limpiarSeccionMostrarLista();
+}
+
+// PASO 2: mostrar lista de secciones disponibles
+function limpiarSeccionMostrarLista() {
+  var el = document.getElementById('modalLimpiarSec'); if (el) el.remove();
+  var div = document.createElement('div');
+  div.id = 'modalLimpiarSec';
+  div.className = 'modal-overlay open';
+  div.style.zIndex = '10500';
+
+  var rows = SECCIONES_LIMPIABLES.map(function(s) {
+    return "<div class=\"sec-limpiable\" data-secid=\"" + s.id + "\" " +
+           "style=\"padding:12px 14px;border:1px solid var(--border);border-radius:6px;cursor:pointer;" +
+           "transition:background .15s;display:flex;justify-content:space-between;align-items:center\" " +
+           "onmouseover=\"this.style.background='var(--bg3)';this.style.borderColor='var(--accent)'\" " +
+           "onmouseout=\"this.style.background='';this.style.borderColor='var(--border)'\" " +
+           "onclick=\"limpiarSeccionConfirmar('" + s.id + "')\">" +
+        "<div>" +
+          "<div style=\"font-weight:700;font-size:14px\">" + s.label + "</div>" +
+          "<div style=\"font-size:11px;color:var(--text3);margin-top:2px\">" + s.desc + "</div>" +
+        "</div>" +
+        "<div style=\"font-size:18px;color:var(--red2)\">→</div>" +
+      "</div>";
+  }).join('');
+
+  div.innerHTML =
+    "<div class=\"modal\" style=\"max-width:540px\">" +
+      "<div class=\"modal-header\" style=\"border-bottom:2px solid var(--red2)\">" +
+        "🧹 Limpiar Sección" +
+        "<button class=\"close-btn\" onclick=\"document.getElementById('modalLimpiarSec').remove()\">✕</button>" +
+      "</div>" +
+      "<div class=\"modal-body\" style=\"display:flex;flex-direction:column;gap:8px\">" +
+        "<div style=\"padding:10px 12px;background:rgba(248,81,73,.1);border:1px solid rgba(248,81,73,.3);" +
+          "border-radius:6px;font-size:12px;color:var(--red2);margin-bottom:6px\">" +
+          "⚠️ Esta acción es <strong>irreversible</strong>. Solo borra los datos cargados, la estructura del tablero se mantiene intacta." +
+        "</div>" +
+        "<div style=\"font-size:11px;color:var(--text3);margin-bottom:4px\">Seleccioná la sección que querés limpiar:</div>" +
+        rows +
+      "</div>" +
+      "<div class=\"modal-footer\">" +
+        "<button class=\"btn btn-secondary\" onclick=\"document.getElementById('modalLimpiarSec').remove()\">Cancelar</button>" +
+      "</div>" +
+    "</div>";
+  document.body.appendChild(div);
+}
+
+// PASO 3: confirmación final con PIN nuevamente
+function limpiarSeccionConfirmar(secId) {
+  var sec = SECCIONES_LIMPIABLES.find(function(s){ return s.id === secId; });
+  if (!sec) return;
+  _limpiarSecActiva = sec;
+
+  var el = document.getElementById('modalLimpiarSec'); if (el) el.remove();
+  var div = document.createElement('div');
+  div.id = 'modalLimpiarSecFinal';
+  div.className = 'modal-overlay open';
+  div.style.zIndex = '10600';
+
+  div.innerHTML =
+    "<div class=\"modal\" style=\"max-width:440px\">" +
+      "<div class=\"modal-header\" style=\"border-bottom:2px solid var(--red2);color:var(--red2)\">" +
+        "⚠️ Confirmación Final" +
+        "<button class=\"close-btn\" onclick=\"document.getElementById('modalLimpiarSecFinal').remove()\">✕</button>" +
+      "</div>" +
+      "<div class=\"modal-body\" style=\"display:flex;flex-direction:column;gap:14px\">" +
+        "<div style=\"padding:14px;background:rgba(248,81,73,.1);border:1px solid rgba(248,81,73,.3);border-radius:6px\">" +
+          "<div style=\"font-weight:700;font-size:15px;margin-bottom:6px\">Vas a borrar: " + sec.label + "</div>" +
+          "<div style=\"font-size:12px;color:var(--text2)\">" + sec.desc + "</div>" +
+        "</div>" +
+        "<div class=\"form-group\">" +
+          "<label class=\"form-label\" style=\"color:var(--red2)\">Re-ingresá el PIN para confirmar la eliminación:</label>" +
+          "<input type=\"password\" class=\"form-control\" id=\"limpiarSecPin\" placeholder=\"PIN de administrador\" " +
+            "autocomplete=\"off\" autofocus " +
+            "onkeyup=\"if(event.key==='Enter')limpiarSeccionEjecutar()\" " +
+            "style=\"font-family:monospace;font-size:18px;letter-spacing:6px;text-align:center\">" +
+        "</div>" +
+        "<div style=\"font-size:11px;color:var(--text3);text-align:center\">Esta acción no se puede deshacer.</div>" +
+      "</div>" +
+      "<div class=\"modal-footer\">" +
+        "<button class=\"btn btn-secondary\" onclick=\"document.getElementById('modalLimpiarSecFinal').remove()\">Cancelar</button>" +
+        "<button class=\"btn btn-danger\" onclick=\"limpiarSeccionEjecutar()\">🗑 Confirmar y Borrar</button>" +
+      "</div>" +
+    "</div>";
+  document.body.appendChild(div);
+
+  setTimeout(function(){
+    var inp = document.getElementById('limpiarSecPin');
+    if (inp) inp.focus();
+  }, 100);
+}
+
+// EJECUTAR: validar PIN y limpiar
+function limpiarSeccionEjecutar() {
+  var pin = (document.getElementById('limpiarSecPin')||{value:''}).value;
+  if (pin !== PIN_ADMIN) {
+    toast('PIN incorrecto — operación cancelada', 'error');
+    var inp = document.getElementById('limpiarSecPin');
+    if (inp) { inp.value = ''; inp.focus(); }
+    return;
+  }
+  if (!_limpiarSecActiva) return;
+
+  try {
+    _limpiarSecActiva.limpia();
+    save();
+    var label = _limpiarSecActiva.label;
+    _limpiarSecActiva = null;
+
+    var el = document.getElementById('modalLimpiarSecFinal'); if (el) el.remove();
+
+    // Refrescar todo
+    try { renderSidebar(); } catch(e) {}
+    try { renderDashboard(); } catch(e) {}
+    var activePanel = document.querySelector('.panel.active');
+    if (activePanel) {
+      var name = activePanel.id.replace('panel-', '');
+      try { renderPanel(name); } catch(e) {}
+    }
+
+    toast('✅ Sección "' + label + '" limpiada correctamente', 'success');
+  } catch(e) {
+    toast('❌ Error al limpiar: ' + e.message, 'error');
+  }
+}
+
+
+
+// ── Asegurar que funciones críticas estén en window scope ─────────
+(function(){
+  var fns = ['limpiarSeccionAbrir','limpiarSeccionMostrarLista','limpiarSeccionConfirmar','limpiarSeccionEjecutar',
+             'eliminarArticulo','eliminarDeposito','herramientasEliminar','ropacamaEliminar',
+             'subDepEliminar','sgReservaEliminar','sgReservaAprobar','sgReservaCambiarEstado',
+             'rcAjustar','aguagasAjustar','opInviernoEliminarItem','insumosEliminarItem','insumosEliminarArea',
+             'eliminarPrenda','eliminarPersona','herrEliminarGrupo','restaurarArticulo'];
+  fns.forEach(function(name) {
+    try {
+      if (typeof window[name] === 'undefined' && typeof eval(name) === 'function') {
+        window[name] = eval(name);
+      }
+    } catch(e){}
+  });
+})();
 
 </script>
 
@@ -10989,6 +11551,14 @@ document.addEventListener('click', function(e) {
 
   /* Edit controls hidden in visitor mode */
   body.visitor-mode .edit-only { display:none !important; }
+  /* Modo Lector — estricto: ocultar también botones de eliminar/editar dinámicos */
+  body.visitor-mode .btn-danger:not(.reservar-btn):not(.btn-secondary) { display:none !important; }
+  body.visitor-mode button[onclick*="eliminar"]:not(.reservar-btn),
+  body.visitor-mode button[onclick*="Eliminar"]:not(.reservar-btn),
+  body.visitor-mode button[onclick*="Editar"]:not(.reservar-btn),
+  body.visitor-mode button[onclick*="editar"]:not(.reservar-btn) { display:none !important; }
+  body.visitor-mode .tbl-actions { display:none !important; }
+  body.visitor-mode .tbl-actions.reader-allow { display:flex !important; }
   /* Modo Lector: bloquear operaciones de modificación */
   body.visitor-mode .nav-item[onclick*="ingresos"],
   body.visitor-mode .nav-item[onclick*="egresos"],
