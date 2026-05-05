@@ -121,7 +121,7 @@
     .stats-row { grid-template-columns: 1fr 1fr !important; gap: 10px; }
     .depositos-grid { grid-template-columns: 1fr !important; }
     .form-row, .form-row-3 { grid-template-columns: 1fr !important; }
-    .page-title { font-size: 22px !important; }
+    .page-title { font-size: 22px !important; ; text-transform: uppercase}
     .card { margin-bottom: 12px; }
     .tbl { font-size: 12px; }
     .tbl th, .tbl td { padding: 7px 8px; }
@@ -161,10 +161,13 @@
   /* PAGE TITLE */
   .page-title {
     font-family: 'Barlow Condensed', sans-serif;
-    font-size: 28px; font-weight: 700; letter-spacing: 1px;
+    font-size: 28px; font-weight: 700; letter-spacing: 1.5px;
     margin-bottom: 4px;
+    text-transform: uppercase;
   }
-  .page-sub { color: var(--text2); font-size: 13px; margin-bottom: 24px; }
+  .page-sub { color: var(--text2); font-size: 13px; margin-bottom: 24px; text-transform: uppercase; letter-spacing: .5px; }
+  .card-header { text-transform: uppercase; }
+  .tbl th { text-transform: uppercase; }
 
   /* STAT CARDS */
   .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
@@ -2299,7 +2302,10 @@ function renderDashboard() {
     const colLbl = wide ? '⇔ Dividir' : '⇔ Expandir';
 
     let extras = '';
-    if (wid === 'w-alertas') extras = '<span class="badge badge-red" id="dashAlertCount">' + total + '</span>';
+    if (wid === 'w-alertas') {
+      var totalAl = getAlertasGlobales().length;
+      extras = '<span class="badge badge-red" id="dashAlertCount">' + totalAl + '</span>';
+    }
     if (wid === 'w-movs')    extras = '<button class="btn btn-secondary btn-sm" style="font-size:11px" onclick="showPanel(\'movimientos\')">Ver todos</button>';
 
     html +=
@@ -2360,22 +2366,152 @@ function dashToggleWidth(wid) {
   renderDashboard();
 }
 
+
+// ══════════════════════════════════════════════════════════════════
+// ALERTAS UNIFICADAS — Todos los módulos
+// ══════════════════════════════════════════════════════════════════
+function getAlertasGlobales() {
+  var alertas = [];
+
+  // Artículos
+  (state.articulos||[]).forEach(function(a) {
+    var s = getStockStatus(a);
+    if (s === 'green') return;
+    var total = getStockTotal(a);
+    alertas.push({
+      modulo:'📦 Artículos', icono: s==='red'?'🔴':'🟡',
+      severidad: s==='red'?'red':'yellow',
+      nombre: a.nombre,
+      detalle: 'Stock: ' + total + ' ' + (a.unidad||'') + ' · Mín: ' + (a.min||0)
+    });
+  });
+
+  // Herramientas (estado reparacion o baja)
+  (state.herramientas&&state.herramientas.items||[]).forEach(function(h) {
+    if (h.estado === 'reparacion') {
+      alertas.push({
+        modulo:'🔧 Herramientas', icono:'🟡', severidad:'yellow',
+        nombre: h.nombre,
+        detalle: 'En reparación · ' + (h.area||'sin área')
+      });
+    } else if (h.estado === 'baja') {
+      alertas.push({
+        modulo:'🔧 Herramientas', icono:'🔴', severidad:'red',
+        nombre: h.nombre,
+        detalle: 'De baja · ' + (h.area||'sin área')
+      });
+    }
+  });
+
+  // Agua y Gas (stock total bajo)
+  var deps = state.depositos || [];
+  (state.aguagas&&state.aguagas.items||[]).forEach(function(i) {
+    var total = 0;
+    deps.forEach(function(d){ total += (i.stock&&i.stock[d.id])||0; });
+    var min = i.min || 0;
+    if (total === 0) {
+      alertas.push({ modulo:'💧 Agua y Gas', icono:'🔴', severidad:'red',
+        nombre: i.nombre, detalle: 'Sin stock · Mín: ' + min });
+    } else if (min > 0 && total < min) {
+      alertas.push({ modulo:'💧 Agua y Gas', icono:'🟡', severidad:'yellow',
+        nombre: i.nombre, detalle: 'Stock: ' + total + ' · Mín: ' + min });
+    }
+  });
+
+  // Ropa de Cama (limpio bajo mínimo)
+  (state.ropacama&&state.ropacama.items||[]).forEach(function(i) {
+    var limpio = i.limpio || 0;
+    var min    = i.min    || 0;
+    if (limpio === 0) {
+      alertas.push({ modulo:'🛏 Ropa de Cama', icono:'🔴', severidad:'red',
+        nombre: i.nombre, detalle: 'Sin stock limpio · Mín: ' + min });
+    } else if (min > 0 && limpio < min) {
+      alertas.push({ modulo:'🛏 Ropa de Cama', icono:'🟡', severidad:'yellow',
+        nombre: i.nombre, detalle: 'Limpio: ' + limpio + ' · Mín: ' + min });
+    }
+  });
+
+  // Insumos
+  (state.insumos&&state.insumos.items||[]).forEach(function(i) {
+    var s = i.stock || 0;
+    var m = i.min   || 0;
+    if (s === 0) {
+      alertas.push({ modulo:'🧴 Insumos', icono:'🔴', severidad:'red',
+        nombre: i.nombre, detalle: 'Sin stock · Mín: ' + m });
+    } else if (m > 0 && s < m) {
+      alertas.push({ modulo:'🧴 Insumos', icono:'🟡', severidad:'yellow',
+        nombre: i.nombre, detalle: 'Stock: ' + s + ' ' + (i.unidad||'') + ' · Mín: ' + m });
+    }
+  });
+
+  // Operativo Invierno (no completos)
+  (state.operativoInvierno&&state.operativoInvierno.items||[]).forEach(function(i) {
+    var req = i.cantRequerida || 0;
+    var act = i.cantActual    || 0;
+    if (req === 0) return;
+    if (act === 0) {
+      alertas.push({ modulo:'❄️ Op. Invierno', icono:'🔴', severidad:'red',
+        nombre: i.nombre, detalle: 'Sin stock · Requerido: ' + req });
+    } else if (act < req) {
+      var pct = Math.round((act/req)*100);
+      var sev = pct < 60 ? 'red' : 'yellow';
+      alertas.push({ modulo:'❄️ Op. Invierno', icono: sev==='red'?'🔴':'🟡', severidad: sev,
+        nombre: i.nombre, detalle: act + '/' + req + ' (' + pct + '%)' });
+    }
+  });
+
+  // Equipamiento (prendas con stock bajo si tienen min)
+  (state.ropa&&state.ropa.prendas||[]).forEach(function(p) {
+    if (!p.tallas) return;
+    Object.keys(p.tallas).forEach(function(t) {
+      var datos = p.tallas[t] || {};
+      var stk = datos.stock || 0;
+      var min = datos.min   || 0;
+      if (min > 0 && stk < min) {
+        alertas.push({
+          modulo:'👕 Equipamiento',
+          icono: stk===0?'🔴':'🟡',
+          severidad: stk===0?'red':'yellow',
+          nombre: p.nombre + ' (Talle ' + t + ')',
+          detalle: 'Stock: ' + stk + ' · Mín: ' + min
+        });
+      }
+    });
+  });
+
+  // Ordenar: rojos primero, después amarillos
+  alertas.sort(function(a,b) {
+    if (a.severidad === b.severidad) return 0;
+    return a.severidad === 'red' ? -1 : 1;
+  });
+
+  return alertas;
+}
+
 // ── Fill bodies ───────────────────────────────────────────────────
 function dashFillWidget(id) {
   var body = document.getElementById(id + '-body');
   if (!body) return;
   if (id === 'w-alertas') {
-    var alertas = state.articulos.filter(function(a){ return getStockStatus(a) !== 'green'; }).slice(0,10);
-    body.innerHTML = !alertas.length
+    var alertas = getAlertasGlobales();
+    var totalAlertas = alertas.length;
+    // Actualizar badge contador
+    var cntBadge = document.getElementById('dashAlertCount');
+    if (cntBadge) cntBadge.textContent = totalAlertas;
+    // Mostrar primeras 12
+    var visibles = alertas.slice(0, 12);
+    body.innerHTML = !totalAlertas
       ? '<div class="empty-state"><div class="empty-icon">✅</div><p>Sin alertas activas</p></div>'
-      : '<div class="alerts-list">' + alertas.map(function(a) {
-          var s = getStockStatus(a);
-          return '<div class="alert-item ' + (s==='red'?'alert-red':'alert-yellow') + '">' +
-            '<span class="alert-icon">' + (s==='red'?'🔴':'🟡') + '</span>' +
-            '<div class="alert-text"><div class="alert-title">' + a.nombre + '</div>' +
-            '<div class="alert-desc">Stock: ' + getStockTotal(a) + ' ' + (a.unidad||'') + ' — Mín: ' + a.min + '</div>' +
+      : '<div class="alerts-list">' + visibles.map(function(a) {
+          return '<div class="alert-item ' + (a.severidad==='red'?'alert-red':'alert-yellow') + '">' +
+            '<span class="alert-icon">' + a.icono + '</span>' +
+            '<div class="alert-text">' +
+              '<div class="alert-title">' + a.nombre + '<span style="font-size:10px;color:var(--text3);font-weight:400;margin-left:6px">' + a.modulo + '</span></div>' +
+              '<div class="alert-desc">' + a.detalle + '</div>' +
             '</div></div>';
-        }).join('') + '</div>';
+        }).join('') +
+        (totalAlertas > 12 ? '<div style="text-align:center;padding:8px;font-size:11px;color:var(--text3)">y ' + (totalAlertas-12) + ' más...</div>' : '') +
+        '</div>';
   } else if (id === 'w-movs') {
     var ultimos = state.movimientos.slice().reverse().slice(0,8);
     body.innerHTML = !ultimos.length
@@ -4478,7 +4614,8 @@ function renderStockGlobal() {
       var pendientes = (state.reservas||[]).filter(function(r){ return r.estado==='pendiente'; }).length;
       var badge = pendientes ? '<span style="background:var(--accent);color:#fff;padding:1px 7px;border-radius:10px;font-size:11px;font-weight:700;margin-left:6px">' + pendientes + '</span>' : '';
       div.innerHTML = '<button class="btn btn-sm" id="sgTabStock" onclick="sgSetTab(\'stock\')">📊 Stock</button>' +
-                      '<button class="btn btn-sm" id="sgTabReservas" onclick="sgSetTab(\'reservas\')">🔖 Reservas' + badge + '</button>';
+                      '<button class="btn btn-sm" id="sgTabReservas" onclick="sgSetTab(\'reservas\')">🔖 Reservas' + badge + '</button>' +
+                      '<button class="btn btn-sm" id="sgTabHistorial" onclick="sgSetTab(\'historial\')">📚 Historial</button>';
       panel.insertBefore(div, panel.children[1]);
     }
     tabsBox = document.getElementById('sgTabs');
@@ -4488,6 +4625,8 @@ function renderStockGlobal() {
   var btnRes   = document.getElementById('sgTabReservas');
   if (btnStock) btnStock.className = 'btn btn-sm ' + (_sgTab==='stock'?'btn-primary':'btn-secondary');
   if (btnRes)   btnRes.className   = 'btn btn-sm ' + (_sgTab==='reservas'?'btn-primary':'btn-secondary');
+  var btnHist  = document.getElementById('sgTabHistorial');
+  if (btnHist)  btnHist.className  = 'btn btn-sm ' + (_sgTab==='historial'?'btn-primary':'btn-secondary');
 
   // Mostrar/ocultar elementos según tab
   var resumenEl = document.getElementById('sgResumen');
@@ -4495,13 +4634,24 @@ function renderStockGlobal() {
   if (_sgTab === 'reservas') {
     if (resumenEl) resumenEl.style.display = 'none';
     if (tableCard) tableCard.style.display = 'none';
+    var histWrap = document.getElementById('sgHistorialWrap');
+    if (histWrap) histWrap.style.display = 'none';
     sgRenderReservas();
+    return;
+  } else if (_sgTab === 'historial') {
+    if (resumenEl) resumenEl.style.display = 'none';
+    if (tableCard) tableCard.style.display = 'none';
+    var resWrap2 = document.getElementById('sgReservasWrap');
+    if (resWrap2) resWrap2.style.display = 'none';
+    sgRenderHistorial();
     return;
   } else {
     if (resumenEl) resumenEl.style.display = 'grid';
     if (tableCard) tableCard.style.display = '';
     var resWrap = document.getElementById('sgReservasWrap');
     if (resWrap) resWrap.style.display = 'none';
+    var histWrap2 = document.getElementById('sgHistorialWrap');
+    if (histWrap2) histWrap2.style.display = 'none';
   }
 
   // ── Resumen cards ──
@@ -4762,6 +4912,98 @@ function sgRenderReservas() {
 
   wrap.innerHTML = html;
 }
+
+function sgRenderHistorial() {
+  var panel = document.getElementById('panel-stock');
+  if (!panel) return;
+  var wrap = document.getElementById('sgHistorialWrap');
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.id = 'sgHistorialWrap';
+    panel.appendChild(wrap);
+  }
+  wrap.style.display = '';
+
+  var todas = (state.reservas || []).slice().reverse(); // últimas primero
+  if (!todas.length) {
+    wrap.innerHTML = '<div class="empty-state"><div class="empty-icon">📚</div><p>Sin reservas registradas todavía. El historial mostrará todas las reservas, sin importar su estado.</p></div>';
+    return;
+  }
+
+  // Filtros
+  var filtroEstado = window._sgHistFiltroEstado || 'todos';
+  var busqueda     = window._sgHistBusqueda     || '';
+  var bq = busqueda.toLowerCase();
+  var filtradas = todas.filter(function(r) {
+    if (filtroEstado !== 'todos' && r.estado !== filtroEstado) return false;
+    if (bq) {
+      var t = ((r.oc||'') + ' ' + (r.solicitante||'') + ' ' + (r.obs||'')).toLowerCase();
+      if (t.indexOf(bq) === -1) return false;
+    }
+    return true;
+  });
+
+  var html = '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:18px">';
+  html += '<input type="text" class="form-control" placeholder="🔍 Buscar por N° pedido, solicitante u observación..." ' +
+          'style="flex:1;min-width:220px" value="' + busqueda + '" ' +
+          'oninput="window._sgHistBusqueda=this.value;sgRenderHistorial()">';
+  html += '<select class="form-control" style="width:170px" onchange="window._sgHistFiltroEstado=this.value;sgRenderHistorial()">';
+  html += '<option value="todos"' + (filtroEstado==='todos'?' selected':'') + '>Todos los estados</option>';
+  html += '<option value="pendiente"' + (filtroEstado==='pendiente'?' selected':'') + '>⏳ Pendiente</option>';
+  html += '<option value="revision"' + (filtroEstado==='revision'?' selected':'') + '>🔍 En Revisión</option>';
+  html += '<option value="aprobada"' + (filtroEstado==='aprobada'?' selected':'') + '>✅ Aprobada</option>';
+  html += '<option value="rechazada"' + (filtroEstado==='rechazada'?' selected':'') + '>❌ Rechazada</option>';
+  html += '</select>';
+  html += '<span style="font-size:11px;color:var(--text3);margin-left:auto">' + filtradas.length + ' / ' + todas.length + ' reservas</span>';
+  html += '</div>';
+
+  if (!filtradas.length) {
+    html += '<div class="empty-state"><div class="empty-icon">🔍</div><p>Sin coincidencias para esos filtros.</p></div>';
+    wrap.innerHTML = html;
+    return;
+  }
+
+  html += '<div class="card"><div style="overflow-x:auto"><table class="tbl">';
+  html += '<thead><tr>' +
+    '<th>N° Pedido / Referencia</th>' +
+    '<th>Fecha</th>' +
+    '<th>Solicitante</th>' +
+    '<th>Detalle de artículos</th>' +
+    '<th style="text-align:center">Estado</th>' +
+    '<th>Resolución</th>' +
+    '</tr></thead><tbody>';
+
+  filtradas.forEach(function(r) {
+    var stColor = r.estado==='aprobada' ? 'var(--green2)' :
+                  r.estado==='rechazada'? 'var(--red2)'   :
+                  r.estado==='revision' ? 'var(--blue2)'  : '#d4951a';
+    var stIco   = r.estado==='aprobada' ? '✅' :
+                  r.estado==='rechazada'? '❌' :
+                  r.estado==='revision' ? '🔍' : '⏳';
+    var stLbl   = r.estado==='aprobada' ? 'Aprobada' :
+                  r.estado==='rechazada'? 'Rechazada':
+                  r.estado==='revision' ? 'Revisión' : 'Pendiente';
+
+    var detalleItems = (r.items||[]).map(function(it) {
+      return '• ' + it.nombre + ' — ' + it.cantidad + ' ' + (it.unidad||'');
+    }).join('<br>');
+
+    html += '<tr>' +
+      '<td><strong style="font-family:Barlow Condensed,sans-serif;font-size:15px">' + (r.oc||'—') + '</strong>' +
+        (r.obs ? '<div style="font-size:11px;color:var(--text3);font-style:italic;margin-top:3px">"' + r.obs + '"</div>' : '') +
+      '</td>' +
+      '<td style="font-size:12px;color:var(--text2);white-space:nowrap">' + (r.fecha||'—') + '</td>' +
+      '<td style="font-size:12px">' + (r.solicitante||'—') + '</td>' +
+      '<td style="font-size:12px;line-height:1.6">' + detalleItems + '</td>' +
+      '<td style="text-align:center;white-space:nowrap"><span class="badge" style="background:' + stColor + '18;color:' + stColor + ';border:1px solid ' + stColor + '40">' + stIco + ' ' + stLbl + '</span></td>' +
+      '<td style="font-size:11px;color:var(--text3)">' + (r.fechaResolucion || '—') + '</td>' +
+      '</tr>';
+  });
+
+  html += '</tbody></table></div></div>';
+  wrap.innerHTML = html;
+}
+
 
 function sgReservaCambiarEstado(rid, nuevoEstado) {
   var r = (state.reservas||[]).find(function(x){ return x.id===rid; });
@@ -8141,10 +8383,24 @@ function ropaRenderStock() {
         </div>
       </div>
       <div class="ropa-tallas-grid">${tallaCells || '<div style="color:var(--text3);font-size:12px;padding:8px">Sin tallas configuradas</div>'}</div>
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 14px;border-top:1px solid var(--border);background:var(--bg3)">
+        <span style="font-size:10px;color:var(--text3);font-weight:700">CONDICIÓN:</span>
+        <button class="btn btn-sm edit-only" data-pid="${p.id}" data-cond="nueva"
+          onclick="prendaSetCondicion(this.dataset.pid,this.dataset.cond)"
+          style="font-size:10px;padding:3px 10px;background:${(p.condicion||'nueva')==='nueva'?'rgba(61,158,78,.15)':'transparent'};color:${(p.condicion||'nueva')==='nueva'?'var(--green2)':'var(--text3)'};border:1px solid ${(p.condicion||'nueva')==='nueva'?'var(--green2)':'var(--border)'}">
+          ✓ NUEVA
+        </button>
+        <button class="btn btn-sm edit-only" data-pid="${p.id}" data-cond="usada"
+          onclick="prendaSetCondicion(this.dataset.pid,this.dataset.cond)"
+          style="font-size:10px;padding:3px 10px;background:${(p.condicion||'nueva')==='usada'?'rgba(212,149,42,.15)':'transparent'};color:${(p.condicion||'nueva')==='usada'?'#d4951a':'var(--text3)'};border:1px solid ${(p.condicion||'nueva')==='usada'?'#d4951a':'var(--border)'}">
+          ↻ USADA
+        </button>
+      </div>
       <div class="ropa-card-footer">
         <button class="btn btn-secondary btn-sm" onclick="openModalEntregaForPrenda('${p.id}')">🎽 Entregar</button>
         <button class="btn btn-primary btn-sm" onclick="openModalReponer('${p.id}')">📦 Reponer</button>
         <button class="btn btn-secondary btn-sm" onclick="editarPrenda('${p.id}')">✏️</button>
+        <button class="btn btn-secondary btn-sm edit-only" onclick="duplicarPrenda('${p.id}')" title="Duplicar prenda">⎘</button>
         <button class="btn btn-danger btn-sm edit-only" onclick="eliminarPrenda('${p.id}')">🗑</button>
       </div>
     </div>`;
@@ -10981,6 +11237,38 @@ function limpiarSeccionEjecutar() {
     } catch(e){}
   });
 })();
+
+
+// ── EQUIPAMIENTO: duplicar prenda y condición USADA/NUEVA ──────────
+function duplicarPrenda(prendaId) {
+  if (!state.ropa || !state.ropa.prendas) return;
+  var p = state.ropa.prendas.find(function(x){ return x.id === prendaId; });
+  if (!p) return;
+  var copia = JSON.parse(JSON.stringify(p));
+  copia.id = genId();
+  copia.nombre = (p.nombre || '') + ' (Copia)';
+  // Resetear stock en cada talla pero mantener mínimos y estructura
+  if (copia.tallas) {
+    Object.keys(copia.tallas).forEach(function(t){
+      if (copia.tallas[t]) copia.tallas[t].stock = 0;
+    });
+  }
+  state.ropa.prendas.push(copia);
+  save();
+  if (typeof ropaRenderStock === 'function') ropaRenderStock();
+  toast('Prenda duplicada (stock reseteado a 0)', 'success');
+}
+
+function prendaSetCondicion(prendaId, condicion) {
+  if (!state.ropa || !state.ropa.prendas) return;
+  var p = state.ropa.prendas.find(function(x){ return x.id === prendaId; });
+  if (!p) return;
+  p.condicion = condicion;
+  save();
+  if (typeof ropaRenderStock === 'function') ropaRenderStock();
+  toast('Condición actualizada: ' + (condicion === 'nueva' ? '✓ NUEVA' : '↻ USADA'), 'success');
+}
+
 
 </script>
 
