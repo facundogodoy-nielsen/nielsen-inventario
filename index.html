@@ -3038,7 +3038,11 @@ function verDetalleDeposito(depId) {
 
   document.getElementById('detalleDepHeader').innerHTML = `${ico} ${d.nombre} <button class="close-btn" onclick="closeModal('modalDetalleDeposito')">✕</button>`;
 
-  let body = `<div class="flex gap-3" style="margin-bottom:16px;flex-wrap:wrap">
+  let body = `<div style="margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap">
+    <button class="btn btn-primary btn-sm edit-only" onclick="depositoCargaMasivaAbrir('${depId}')">📋 Carga Masiva</button>
+    <button class="btn btn-secondary btn-sm edit-only" onclick="depositoCargaMasivaPlantilla()">⬇️ Descargar Plantilla</button>
+  </div>
+  <div class="flex gap-3" style="margin-bottom:16px;flex-wrap:wrap">
     <span class="badge badge-blue">${tipoLabel}</span>
     <span class="badge badge-gray">${d.ubicacion || 'Sin ubicación'}</span>
     ${d.responsable ? `<span class="badge badge-gray">👤 ${d.responsable}</span>` : ''}
@@ -4753,12 +4757,24 @@ function stockGlobalReservar(preItem) {
   var ocNum = 'OC-' + new Date().getFullYear() + '-' + String(Math.floor(Math.random()*9000)+1000);
 
   var itemOpts = items.map(function(r, i) {
-    return "<tr>" +
-      "<td><input type=\"checkbox\" class=\"sgr-row-chk\" id=\"sgr_chk_" + i + "\" checked></td>" +
+    var sinStock = (r.total || 0) <= 0;
+    var rowStyle = sinStock ? "opacity:.55;background:rgba(248,81,73,.05)" : "";
+    var stockCell = sinStock
+      ? "<span style=\"color:var(--red2);font-weight:700;font-size:11px\">⚠ SIN STOCK</span>"
+      : "<span style=\"font-family:Barlow Condensed,sans-serif;font-size:16px;font-weight:700;color:var(--green2)\">" + r.total + "</span> <span style=\"font-size:11px;color:var(--text3)\">" + (r.unidad||'') + "</span>";
+    var qtyCell = sinStock
+      ? "<span style=\"color:var(--red2);font-size:11px;font-style:italic\">No disponible</span>"
+      : "<input type=\"number\" id=\"sgr_qty_" + i + "\" class=\"form-control\" value=\"1\" min=\"1\" max=\"" + r.total + "\" style=\"width:70px;text-align:center\">";
+    var chkCell = sinStock
+      ? "<span title=\"Sin stock disponible\" style=\"color:var(--red2);font-size:14px\">🚫</span>"
+      : "<input type=\"checkbox\" class=\"sgr-row-chk\" id=\"sgr_chk_" + i + "\">";
+
+    return "<tr style=\"" + rowStyle + "\" data-sinstock=\"" + (sinStock?'1':'0') + "\">" +
+      "<td>" + chkCell + "</td>" +
       "<td style=\"font-size:12px\">" + r.modulo + "</td>" +
       "<td><strong>" + r.nombre + "</strong></td>" +
-      "<td style=\"text-align:center;font-size:12px\">" + r.total + " " + r.unidad + "</td>" +
-      "<td><input type=\"number\" id=\"sgr_qty_" + i + "\" class=\"form-control\" value=\"1\" min=\"1\" max=\"" + r.total + "\" style=\"width:70px;text-align:center\"></td>" +
+      "<td style=\"text-align:center\">" + stockCell + "</td>" +
+      "<td>" + qtyCell + "</td>" +
       "</tr>";
   }).join('');
 
@@ -4791,7 +4807,7 @@ function stockGlobalReservar(preItem) {
         "</div>" +
         "<div style=\"overflow-x:auto\">" +
           "<table class=\"tbl\"><thead><tr>" +
-            "<th><input type=\"checkbox\" id=\"sgr_all\" onchange=\"document.querySelectorAll('.sgr-row-chk').forEach(function(c){c.checked=this.checked},this)\"></th>" +
+            "<th><input type=\"checkbox\" id=\"sgr_all\" onchange=\"sgrSelectAll(this.checked)\"></th>" +
             "<th>Módulo</th><th>Artículo</th><th>Stock Disp.</th><th>Cantidad a Reservar</th>" +
           "</tr></thead><tbody>" + itemOpts + "</tbody></table>" +
         "</div>" +
@@ -4807,6 +4823,15 @@ function stockGlobalReservar(preItem) {
 }
 
 
+// Helper: seleccionar/deseleccionar todos saltando los sin stock
+function sgrSelectAll(checked) {
+  document.querySelectorAll('.sgr-row-chk').forEach(function(c){
+    var row = c.closest('tr');
+    if (row && row.dataset.sinstock === '1') return; // saltar sin stock
+    c.checked = checked;
+  });
+}
+
 function sgConfirmarReserva(total) {
   if (!state.reservas) state.reservas = [];
   var oc       = (document.getElementById('sgr_oc')  ||{value:''}).value.trim();
@@ -4814,6 +4839,7 @@ function sgConfirmarReserva(total) {
   var obs      = (document.getElementById('sgr_obs') ||{value:''}).value.trim();
   var items    = window._sgReservaItems || [];
   var selected = [];
+  var sinStockSel = [];
 
   if (!oc) { toast('Ingresá el número de orden', 'error'); return; }
 
@@ -4821,11 +4847,26 @@ function sgConfirmarReserva(total) {
     var chk = document.getElementById('sgr_chk_' + i);
     var qty = parseInt((document.getElementById('sgr_qty_' + i)||{value:1}).value) || 1;
     if (chk && chk.checked && items[i]) {
+      // Verificar stock disponible
+      if ((items[i].total || 0) <= 0) {
+        sinStockSel.push(items[i].nombre);
+        continue;
+      }
+      if (qty > items[i].total) {
+        toast('La cantidad solicitada para "' + items[i].nombre + '" supera el stock disponible (' + items[i].total + ')', 'error');
+        return;
+      }
       selected.push({ nombre:items[i].nombre, modulo:items[i].tipo, cantidad:qty, unidad:items[i].unidad });
     }
   }
 
-  if (!selected.length) { toast('Seleccioná al menos un ítem', 'error'); return; }
+  // Bloquear si hay items sin stock seleccionados (no debería pasar, pero por las dudas)
+  if (sinStockSel.length) {
+    alert('⚠️ SIN STOCK\n\nNo se puede reservar los siguientes artículos porque no tienen stock disponible:\n\n• ' + sinStockSel.join('\n• '));
+    return;
+  }
+
+  if (!selected.length) { toast('Seleccioná al menos un ítem para reservar', 'error'); return; }
 
   var reserva = {
     id: genId(), fecha: now(), oc: oc,
@@ -11267,6 +11308,234 @@ function prendaSetCondicion(prendaId, condicion) {
   save();
   if (typeof ropaRenderStock === 'function') ropaRenderStock();
   toast('Condición actualizada: ' + (condicion === 'nueva' ? '✓ NUEVA' : '↻ USADA'), 'success');
+}
+
+
+
+// ══════════════════════════════════════════════════════════════════
+// CARGA MASIVA — Por depósito
+// Acepta: pegar texto (TSV/CSV) o subir Excel/CSV
+// Formato: ARTÍCULO | DETALLE/MARCA | CANTIDAD | U.M.
+// ══════════════════════════════════════════════════════════════════
+
+function depositoCargaMasivaPlantilla() {
+  // Genera y descarga un CSV de ejemplo
+  var csv = 'Articulo,Detalle/Marca,Cantidad,U.M.\n' +
+            'Tornillo Phillips 3/16,Marca Bremen,500,unidad\n' +
+            'Aceite Hidraulico,Shell Tellus 46,4,litro\n' +
+            'Filtro de Aire,Mann Filter,3,unidad\n';
+  var blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+  var url  = URL.createObjectURL(blob);
+  var a    = document.createElement('a');
+  a.href = url;
+  a.download = 'plantilla_carga_masiva.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('Plantilla descargada', 'success');
+}
+
+function depositoCargaMasivaAbrir(depId) {
+  var dep = state.depositos.find(function(d){ return d.id === depId; });
+  if (!dep) return;
+
+  var el = document.getElementById('modalCargaMasiva'); if (el) el.remove();
+  var div = document.createElement('div');
+  div.id = 'modalCargaMasiva';
+  div.className = 'modal-overlay open';
+  div.style.zIndex = '10500';
+  div.innerHTML =
+    "<div class=\"modal\" style=\"max-width:680px\">" +
+      "<div class=\"modal-header\">📋 Carga Masiva → " + dep.nombre +
+        "<button class=\"close-btn\" onclick=\"document.getElementById('modalCargaMasiva').remove()\">✕</button>" +
+      "</div>" +
+      "<div class=\"modal-body\" style=\"display:flex;flex-direction:column;gap:14px\">" +
+        "<input type=\"hidden\" id=\"cmDepId\" value=\"" + depId + "\">" +
+        "<div style=\"padding:10px 12px;background:rgba(74,128,204,.1);border:1px solid rgba(74,128,204,.3);border-radius:6px;font-size:12px;color:var(--text2)\">" +
+          "ℹ️ <strong>Formato esperado:</strong> 4 columnas separadas por <code>TAB</code> (al copiar desde Excel) o <code>,</code> (CSV)." +
+          "<br>Columnas: <strong>Articulo</strong> · <strong>Detalle/Marca</strong> · <strong>Cantidad</strong> · <strong>U.M.</strong>" +
+          "<br>Si el artículo ya existe, se le <strong>sumará</strong> la cantidad al stock." +
+        "</div>" +
+        "<div style=\"display:flex;gap:8px;align-items:center\">" +
+          "<button type=\"button\" class=\"btn btn-secondary btn-sm\" onclick=\"document.getElementById('cmFileInput').click()\">📁 Subir Excel/CSV</button>" +
+          "<input type=\"file\" id=\"cmFileInput\" accept=\".csv,.tsv,.xlsx,.xls,.txt\" style=\"display:none\" onchange=\"depositoCargaMasivaArchivo(event)\">" +
+          "<span style=\"font-size:11px;color:var(--text3)\">o pegá los datos abajo:</span>" +
+        "</div>" +
+        "<div class=\"form-group\">" +
+          "<label class=\"form-label\">Datos a cargar</label>" +
+          "<textarea class=\"form-control\" id=\"cmTexto\" rows=\"10\" " +
+            "style=\"font-family:monospace;font-size:12px\" " +
+            "placeholder=\"Articulo\\tDetalle/Marca\\tCantidad\\tU.M.\\nTornillo Phillips 3/16\\tMarca Bremen\\t500\\tunidad\\nAceite Hidraulico\\tShell Tellus 46\\t4\\tlitro\"></textarea>" +
+        "</div>" +
+        "<div id=\"cmPreview\" style=\"display:none\"></div>" +
+      "</div>" +
+      "<div class=\"modal-footer\">" +
+        "<button class=\"btn btn-secondary\" onclick=\"document.getElementById('modalCargaMasiva').remove()\">Cancelar</button>" +
+        "<button class=\"btn btn-secondary\" onclick=\"depositoCargaMasivaPreview()\">👁 Ver Preview</button>" +
+        "<button class=\"btn btn-primary\" onclick=\"depositoCargaMasivaConfirmar()\">✅ Cargar al Depósito</button>" +
+      "</div>" +
+    "</div>";
+  document.body.appendChild(div);
+}
+
+function depositoCargaMasivaArchivo(ev) {
+  var file = ev.target.files[0];
+  if (!file) return;
+  var ext = (file.name.split('.').pop() || '').toLowerCase();
+
+  if (ext === 'csv' || ext === 'tsv' || ext === 'txt') {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      document.getElementById('cmTexto').value = e.target.result;
+      depositoCargaMasivaPreview();
+    };
+    reader.readAsText(file);
+  } else if (ext === 'xlsx' || ext === 'xls') {
+    // SheetJS está disponible por CDN — verificar
+    if (typeof XLSX === 'undefined') {
+      toast('Para Excel necesitás SheetJS. Por ahora pegá los datos en texto.', 'error');
+      return;
+    }
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        var data = new Uint8Array(e.target.result);
+        var wb   = XLSX.read(data, { type:'array' });
+        var ws   = wb.Sheets[wb.SheetNames[0]];
+        var csv  = XLSX.utils.sheet_to_csv(ws, { FS: '\t' });
+        document.getElementById('cmTexto').value = csv;
+        depositoCargaMasivaPreview();
+      } catch(err) {
+        toast('Error al leer Excel: ' + err.message, 'error');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  } else {
+    toast('Formato no soportado', 'error');
+  }
+}
+
+function depositoCargaMasivaParse(texto) {
+  // Detectar separador (TAB tiene prioridad si existe)
+  var sep = texto.indexOf('\t') !== -1 ? '\t' : ',';
+  var lineas = texto.split(/\r?\n/).map(function(l){ return l.trim(); }).filter(Boolean);
+  if (!lineas.length) return [];
+
+  // Saltar header si la primera línea contiene "articulo" o similar
+  var first = lineas[0].toLowerCase();
+  var startIdx = (first.indexOf('articulo') !== -1 || first.indexOf('artículo') !== -1) ? 1 : 0;
+
+  var rows = [];
+  for (var i = startIdx; i < lineas.length; i++) {
+    var partes = lineas[i].split(sep).map(function(p){
+      // Quitar comillas alrededor del campo
+      return p.replace(/^"|"$/g, '').trim();
+    });
+    var nombre   = partes[0] || '';
+    var detalle  = partes[1] || '';
+    var cantidad = parseInt((partes[2] || '0').replace(/[^0-9-]/g,'')) || 0;
+    var unidad   = (partes[3] || 'unidad').toLowerCase();
+    if (!nombre) continue;
+    rows.push({ nombre: nombre, detalle: detalle, cantidad: cantidad, unidad: unidad });
+  }
+  return rows;
+}
+
+function depositoCargaMasivaPreview() {
+  var texto = (document.getElementById('cmTexto')||{value:''}).value;
+  var rows  = depositoCargaMasivaParse(texto);
+  var prev  = document.getElementById('cmPreview');
+  if (!prev) return;
+
+  if (!rows.length) {
+    prev.style.display = 'none';
+    toast('Sin filas válidas. Verificá el formato.', 'error');
+    return;
+  }
+
+  var depId = (document.getElementById('cmDepId')||{value:''}).value;
+  var html  = '<div style="background:var(--bg3);padding:10px;border-radius:6px;border:1px solid var(--border)">';
+  html += '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Preview — ' + rows.length + ' fila(s)</div>';
+  html += '<div style="max-height:240px;overflow-y:auto"><table class="tbl" style="font-size:12px"><thead><tr><th>Artículo</th><th>Detalle</th><th style="text-align:center">Cant.</th><th>U.M.</th><th style="text-align:center">Acción</th></tr></thead><tbody>';
+
+  rows.forEach(function(r) {
+    var existe = state.articulos.find(function(a){ return a.nombre.toLowerCase() === r.nombre.toLowerCase(); });
+    var accion = existe
+      ? '<span style="color:var(--blue2);font-size:11px">+ Sumar a stock</span>'
+      : '<span style="color:var(--green2);font-size:11px">★ Crear nuevo</span>';
+    html += '<tr>' +
+      '<td><strong>' + r.nombre + '</strong></td>' +
+      '<td style="font-size:11px;color:var(--text3)">' + r.detalle + '</td>' +
+      '<td style="text-align:center;font-family:Barlow Condensed,sans-serif;font-size:16px;font-weight:700">' + r.cantidad + '</td>' +
+      '<td style="font-size:11px">' + r.unidad + '</td>' +
+      '<td style="text-align:center">' + accion + '</td>' +
+      '</tr>';
+  });
+  html += '</tbody></table></div></div>';
+  prev.innerHTML = html;
+  prev.style.display = '';
+}
+
+function depositoCargaMasivaConfirmar() {
+  var depId = (document.getElementById('cmDepId')||{value:''}).value;
+  var texto = (document.getElementById('cmTexto')||{value:''}).value;
+  var rows  = depositoCargaMasivaParse(texto);
+
+  if (!rows.length) { toast('Sin filas válidas para cargar', 'error'); return; }
+
+  var dep = state.depositos.find(function(d){ return d.id === depId; });
+  if (!dep) return;
+
+  var creados   = 0;
+  var sumados   = 0;
+  var fechaMov  = now();
+
+  rows.forEach(function(r) {
+    var nombreNorm = toTitleCase(r.nombre.trim());
+    var existente = state.articulos.find(function(a){ return a.nombre.toLowerCase() === nombreNorm.toLowerCase(); });
+    if (existente) {
+      // Sumar al stock del depósito
+      if (!existente.stock) existente.stock = {};
+      existente.stock[depId] = (existente.stock[depId] || 0) + r.cantidad;
+      // Actualizar detalle si está vacío
+      if (!existente.descripcion && r.detalle) existente.descripcion = toTitleCase(r.detalle);
+      sumados++;
+    } else {
+      // Crear nuevo artículo
+      var nuevo = {
+        id: genId(),
+        nombre: nombreNorm,
+        descripcion: r.detalle ? toTitleCase(r.detalle) : '',
+        categoria: '',
+        unidad: r.unidad,
+        min: 0,
+        max: r.cantidad * 2 || 100,
+        stock: {}
+      };
+      nuevo.stock[depId] = r.cantidad;
+      state.articulos.push(nuevo);
+      creados++;
+    }
+
+    // Registrar movimiento de ingreso
+    state.movimientos.push({
+      id: genId(),
+      tipo: 'ingreso',
+      fecha: fechaMov,
+      artId: existente ? existente.id : state.articulos[state.articulos.length-1].id,
+      depId: depId,
+      cantidad: r.cantidad,
+      motivo: 'Carga masiva',
+      operador: 'Sistema',
+      ref: 'CM-' + new Date().getTime().toString().slice(-6)
+    });
+  });
+
+  save();
+  var el = document.getElementById('modalCargaMasiva'); if (el) el.remove();
+  verDetalleDeposito(depId);
+  toast('✅ Carga masiva: ' + creados + ' nuevo(s), ' + sumados + ' actualizado(s)', 'success');
 }
 
 
