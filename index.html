@@ -2103,6 +2103,83 @@ function initData() {
     if (!state.herrGrupos)                  state.herrGrupos                  = {};
     if (!state.subDepositos)               state.subDepositos               = {};
     // subDepositos: { depId: [{id, nombre, descripcion, articulos:[{artId,qty}]}] }
+
+    // ── MIGRACIÓN Aa UNIVERSAL ────────────────────────────────────
+    // Normaliza todos los nombres existentes a formato Aa (Title Case)
+    // Esto se ejecuta una sola vez al cargar; los nombres nuevos ya se guardan en Aa.
+    try {
+      if (!state._aaNormalizado) {
+        // Depósitos
+        (state.depositos || []).forEach(function(d) {
+          if (d.nombre) d.nombre = toTitleCase(d.nombre);
+          if (d.ubicacion) d.ubicacion = toTitleCase(d.ubicacion);
+          if (d.responsable) d.responsable = toTitleCase(d.responsable);
+        });
+        // Artículos
+        (state.articulos || []).forEach(function(a) {
+          if (a.nombre) a.nombre = toTitleCase(a.nombre);
+          if (a.categoria) a.categoria = toTitleCase(a.categoria);
+          if (a.descripcion) a.descripcion = toTitleCase(a.descripcion);
+        });
+        // Herramientas
+        ((state.herramientas && state.herramientas.items) || []).forEach(function(h) {
+          if (h.nombre) h.nombre = toTitleCase(h.nombre);
+          if (h.descripcion) h.descripcion = toTitleCase(h.descripcion);
+          if (h.ubicacion) h.ubicacion = toTitleCase(h.ubicacion);
+        });
+        // Herr Grupos
+        if (state.herrGrupos) {
+          ['areas','vehiculos'].forEach(function(tipo) {
+            (state.herrGrupos[tipo] || []).forEach(function(g) {
+              if (g.nombre) g.nombre = toTitleCase(g.nombre);
+            });
+          });
+        }
+        // Agua y Gas
+        ((state.aguagas && state.aguagas.items) || []).forEach(function(i) {
+          if (i.nombre) i.nombre = toTitleCase(i.nombre);
+        });
+        // Ropa de Cama
+        ((state.ropacama && state.ropacama.items) || []).forEach(function(i) {
+          if (i.nombre) i.nombre = toTitleCase(i.nombre);
+        });
+        // Insumos
+        ((state.insumos && state.insumos.areas) || []).forEach(function(a) {
+          if (a.nombre) a.nombre = toTitleCase(a.nombre);
+        });
+        ((state.insumos && state.insumos.items) || []).forEach(function(i) {
+          if (i.nombre) i.nombre = toTitleCase(i.nombre);
+        });
+        // Operativo Invierno
+        ((state.operativoInvierno && state.operativoInvierno.items) || []).forEach(function(i) {
+          if (i.nombre) i.nombre = toTitleCase(i.nombre);
+          if (i.categoria) i.categoria = toTitleCase(i.categoria);
+        });
+        // Ropa (Equipamiento)
+        ((state.ropa && state.ropa.prendas) || []).forEach(function(p) {
+          if (p.nombre) p.nombre = toTitleCase(p.nombre);
+          if (p.categoria) p.categoria = toTitleCase(p.categoria);
+          if (p.descripcion) p.descripcion = toTitleCase(p.descripcion);
+        });
+        ((state.ropa && state.ropa.personal) || []).forEach(function(p) {
+          if (p.nombre) p.nombre = toTitleCase(p.nombre);
+          if (p.sector) p.sector = toTitleCase(p.sector);
+        });
+        // Sub-depósitos
+        if (state.subDepositos) {
+          Object.keys(state.subDepositos).forEach(function(depId) {
+            (state.subDepositos[depId] || []).forEach(function(sub) {
+              if (sub.nombre) sub.nombre = toTitleCase(sub.nombre);
+              if (sub.descripcion) sub.descripcion = toTitleCase(sub.descripcion);
+            });
+          });
+        }
+        state._aaNormalizado = true;
+        // Guardar de inmediato para que la sync envíe los datos normalizados
+        localStorage.setItem('nielsen_inventario', JSON.stringify(state));
+      }
+    } catch(e) { console.warn('Migración Aa:', e.message); }
+
     return;
   }
 
@@ -3053,24 +3130,48 @@ function verDetalleDeposito(depId) {
   if (!arts.length) {
     body += '<div class="empty-state"><div class="empty-icon">📦</div><p>Sin artículos en este depósito</p></div>';
   } else {
-    body += `<table class="tbl"><thead><tr><th>Artículo</th><th>Categoría</th><th>Cant.</th><th>Estado</th></tr></thead><tbody>`;
+    body += `<div style="overflow-x:auto"><table class="tbl"><thead><tr>
+        <th>Artículo</th>
+        <th>Categoría</th>
+        <th style="text-align:center">Cantidad</th>
+        <th style="text-align:center">Stock</th>
+        <th>Estado / Observación</th>
+        <th class="edit-only" style="width:80px"></th>
+      </tr></thead><tbody>`;
     arts.forEach(a => {
       const [cls, lbl] = getStockLabel(a);
       const qty = a.stock[d.id] || 0;
       const pct = Math.min(100, Math.round((qty / (a.max || 1)) * 100));
-      const st = getStockStatus(a);
+      const st  = getStockStatus(a);
+      const ico = st === 'green' ? '🟢' : st === 'yellow' ? '🟡' : '🔴';
+      // Observación: usar campo per-deposito si existe, sino descripción general
+      const obsKey = 'obs_' + d.id;
+      const obs    = (a.observaciones && a.observaciones[d.id]) ? a.observaciones[d.id] : '';
       body += `<tr>
-        <td><strong>${a.nombre}</strong></td>
+        <td><strong>${a.nombre}</strong>${a.descripcion ? '<div style="font-size:11px;color:var(--text3);margin-top:2px">' + a.descripcion + '</div>' : ''}</td>
         <td><span class="badge badge-gray">${a.categoria || '—'}</span></td>
-        <td>
-          <span style="font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:700">${qty}</span>
-          <span style="color:var(--text3);font-size:12px"> ${a.unidad || ''}</span>
-          <div class="prog-bar"><div class="prog-fill ${st}" style="width:${pct}%"></div></div>
+        <td style="text-align:center">
+          <span style="font-family:Barlow Condensed,sans-serif;font-size:20px;font-weight:700">${qty}</span>
+          <span style="color:var(--text3);font-size:11px;display:block;margin-top:-2px">${a.unidad || ''}</span>
         </td>
-        <td><span class="badge ${cls}">${lbl}</span></td>
+        <td style="text-align:center">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:3px">
+            <span style="font-size:18px">${ico}</span>
+            <span class="badge ${cls}" style="font-size:10px">${lbl}</span>
+            <div class="prog-bar" style="width:80px;margin-top:2px"><div class="prog-fill ${st}" style="width:${pct}%"></div></div>
+          </div>
+        </td>
+        <td>
+          ${obs ? '<div style="font-size:12px;color:var(--text2);margin-bottom:4px;padding:6px 8px;background:var(--bg3);border-radius:4px;border-left:3px solid var(--accent)">💬 ' + obs + '</div>' : '<div style="font-size:11px;color:var(--text3);font-style:italic">Sin observaciones</div>'}
+        </td>
+        <td class="edit-only">
+          <button class="btn btn-secondary btn-sm" data-aid="${a.id}" data-did="${d.id}"
+            onclick="depositoArtObservacion(this.dataset.aid,this.dataset.did)"
+            title="Agregar / editar observación">📝</button>
+        </td>
       </tr>`;
     });
-    body += '</tbody></table>';
+    body += '</tbody></table></div>';
   }
 
   // ── Sub-depósitos ──
@@ -3088,10 +3189,16 @@ function verDetalleDeposito(depId) {
       body += '<div><strong style="font-size:13px">📁 ' + sub.nombre + '</strong>';
       if (sub.descripcion) body += ' <span style="font-size:11px;color:var(--text3)">· ' + sub.descripcion + '</span>';
       body += '</div>';
-      body += '<div style="display:flex;gap:6px">' +
+      body += '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
         '<button class="btn btn-secondary btn-sm edit-only"' +
         ' data-dep="' + depId + '" data-sub="' + sub.id + '"' +
-        ' onclick="subDepAgregarArt(this.dataset.dep,this.dataset.sub)">+ Art.</button>' +
+        ' onclick="subDepAgregarArt(this.dataset.dep,this.dataset.sub)" title="Asignar artículo del catálogo">+ Art.</button>' +
+        '<button class="btn btn-primary btn-sm edit-only"' +
+        ' data-dep="' + depId + '" data-sub="' + sub.id + '"' +
+        ' onclick="subDepNuevoArt(this.dataset.dep,this.dataset.sub)" title="Crear artículo nuevo y asignar">★ Nuevo</button>' +
+        '<button class="btn btn-secondary btn-sm edit-only"' +
+        ' data-dep="' + depId + '" data-sub="' + sub.id + '"' +
+        ' onclick="subDepCargaMasiva(this.dataset.dep,this.dataset.sub)" title="Carga masiva al sub-depósito">📋 Masiva</button>' +
         '<button class="btn btn-secondary btn-sm edit-only"' +
         ' data-dep="' + depId + '" data-sub="' + sub.id + '"' +
         ' onclick="subDepEditar(this.dataset.dep,this.dataset.sub)">✏️</button>' +
@@ -8426,6 +8533,11 @@ function ropaRenderStock() {
       <div class="ropa-tallas-grid">${tallaCells || '<div style="color:var(--text3);font-size:12px;padding:8px">Sin tallas configuradas</div>'}</div>
       <div style="display:flex;align-items:center;gap:8px;padding:8px 14px;border-top:1px solid var(--border);background:var(--bg3)">
         <span style="font-size:10px;color:var(--text3);font-weight:700">CONDICIÓN:</span>
+        <!-- Badge visible siempre (modo lector y editor) -->
+        <span class="reader-show" style="display:none;font-size:10px;padding:3px 10px;border-radius:4px;font-weight:700;letter-spacing:.5px;background:${(p.condicion||'nueva')==='nueva'?'rgba(61,158,78,.15)':'rgba(212,149,42,.15)'};color:${(p.condicion||'nueva')==='nueva'?'var(--green2)':'#d4951a'};border:1px solid ${(p.condicion||'nueva')==='nueva'?'var(--green2)':'#d4951a'}">
+          ${(p.condicion||'nueva')==='nueva' ? '✓ NUEVA' : '↻ USADA'}
+        </span>
+        <!-- Botones solo en editor -->
         <button class="btn btn-sm edit-only" data-pid="${p.id}" data-cond="nueva"
           onclick="prendaSetCondicion(this.dataset.pid,this.dataset.cond)"
           style="font-size:10px;padding:3px 10px;background:${(p.condicion||'nueva')==='nueva'?'rgba(61,158,78,.15)':'transparent'};color:${(p.condicion||'nueva')==='nueva'?'var(--green2)':'var(--text3)'};border:1px solid ${(p.condicion||'nueva')==='nueva'?'var(--green2)':'var(--border)'}">
@@ -10835,17 +10947,33 @@ function subDepAgregarArt(depId, subId) {
   var dep  = state.depositos.find(function(d){ return d.id===depId; });
   if (!sub) return;
 
-  // Solo artículos que tienen stock en este depósito
+  // Mostrar todos los artículos del catálogo no asignados todavía a este sub-depósito
   var disponibles = state.articulos.filter(function(a){
     var yaAsig = (sub.articulos||[]).some(function(sa){ return sa.artId===a.id; });
     return !yaAsig;
   });
 
-  if (!disponibles.length) { toast('No hay más artículos para asignar', 'info'); return; }
+  if (!disponibles.length) { toast('No hay más artículos para asignar a este sub-depósito', 'info'); return; }
 
-  var opts = disponibles.map(function(a){
-    return "<option value=\"" + a.id + "\">" + a.nombre + " (" + (a.stock[depId]||0) + " " + (a.unidad||'u') + ")</option>";
-  }).join('');
+  // Separar en dos grupos: con stock en este depósito y sin stock
+  var conStock = disponibles.filter(function(a){ return (a.stock && a.stock[depId]) > 0; });
+  var sinStock = disponibles.filter(function(a){ return !(a.stock && a.stock[depId] > 0); });
+
+  var opts = '';
+  if (conStock.length) {
+    opts += '<optgroup label="── Con stock en este depósito ──">';
+    opts += conStock.map(function(a){
+      return "<option value=\"" + a.id + "\">" + a.nombre + " (Disp: " + (a.stock[depId]||0) + " " + (a.unidad||'u') + ")</option>";
+    }).join('');
+    opts += '</optgroup>';
+  }
+  if (sinStock.length) {
+    opts += '<optgroup label="── Sin stock en este depósito ──">';
+    opts += sinStock.map(function(a){
+      return "<option value=\"" + a.id + "\">" + a.nombre + " (Sin stock)</option>";
+    }).join('');
+    opts += '</optgroup>';
+  }
 
   var el = document.getElementById('modalSubDepArt'); if (el) el.remove();
   var div = document.createElement('div');
@@ -11539,6 +11667,397 @@ function depositoCargaMasivaConfirmar() {
 }
 
 
+
+// ══════════════════════════════════════════════════════════════════
+// OBSERVACIONES POR ARTÍCULO EN DEPÓSITO
+// ══════════════════════════════════════════════════════════════════
+function depositoArtObservacion(artId, depId) {
+  var art = state.articulos.find(function(a){ return a.id === artId; });
+  var dep = state.depositos.find(function(d){ return d.id === depId; });
+  if (!art || !dep) return;
+
+  var obsActual = (art.observaciones && art.observaciones[depId]) || '';
+
+  var el = document.getElementById('modalArtObs'); if (el) el.remove();
+  var div = document.createElement('div');
+  div.id = 'modalArtObs';
+  div.className = 'modal-overlay open';
+  div.style.zIndex = '10400';
+  div.innerHTML =
+    "<div class=\"modal\" style=\"max-width:480px\">" +
+      "<div class=\"modal-header\">📝 Observación del artículo" +
+        "<button class=\"close-btn\" onclick=\"document.getElementById('modalArtObs').remove()\">✕</button>" +
+      "</div>" +
+      "<div class=\"modal-body\" style=\"display:flex;flex-direction:column;gap:12px\">" +
+        "<input type=\"hidden\" id=\"obsArtId\" value=\"" + artId + "\">" +
+        "<input type=\"hidden\" id=\"obsDepId\" value=\"" + depId + "\">" +
+        "<div style=\"padding:10px 12px;background:var(--bg3);border-radius:6px;border-left:3px solid var(--accent)\">" +
+          "<div style=\"font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:4px\">Artículo</div>" +
+          "<div style=\"font-weight:700;font-size:14px\">" + art.nombre + "</div>" +
+          "<div style=\"font-size:11px;color:var(--text3);margin-top:6px\">📍 " + dep.nombre + " · 📦 " + (art.stock[depId] || 0) + " " + (art.unidad || '') + "</div>" +
+        "</div>" +
+        "<div class=\"form-group\">" +
+          "<label class=\"form-label\">Observación / Anotación</label>" +
+          "<textarea class=\"form-control\" id=\"obsTexto\" rows=\"4\" placeholder=\"Ej: Mercadería con vencimiento próximo, faltan etiquetas, ubicado en estante superior, etc.\">" + obsActual + "</textarea>" +
+        "</div>" +
+        "<div style=\"font-size:11px;color:var(--text3)\">💡 Esta observación es específica de este artículo en este depósito.</div>" +
+      "</div>" +
+      "<div class=\"modal-footer\">" +
+        "<button class=\"btn btn-secondary\" onclick=\"document.getElementById('modalArtObs').remove()\">Cancelar</button>" +
+        (obsActual ? "<button class=\"btn btn-danger\" onclick=\"depositoArtObservacionLimpiar()\">🗑 Quitar observación</button>" : '') +
+        "<button class=\"btn btn-primary\" onclick=\"depositoArtObservacionGuardar()\">💾 Guardar</button>" +
+      "</div>" +
+    "</div>";
+  document.body.appendChild(div);
+  setTimeout(function(){
+    var t = document.getElementById('obsTexto');
+    if (t) t.focus();
+  }, 100);
+}
+
+function depositoArtObservacionGuardar() {
+  var artId = (document.getElementById('obsArtId')||{value:''}).value;
+  var depId = (document.getElementById('obsDepId')||{value:''}).value;
+  var texto = ((document.getElementById('obsTexto')||{value:''}).value || '').trim();
+  var art   = state.articulos.find(function(a){ return a.id === artId; });
+  if (!art) return;
+  if (!art.observaciones) art.observaciones = {};
+  if (texto) {
+    art.observaciones[depId] = texto;
+  } else {
+    delete art.observaciones[depId];
+  }
+  save();
+  var el = document.getElementById('modalArtObs'); if (el) el.remove();
+  verDetalleDeposito(depId);
+  toast(texto ? 'Observación guardada' : 'Observación quitada', 'success');
+}
+
+function depositoArtObservacionLimpiar() {
+  var artId = (document.getElementById('obsArtId')||{value:''}).value;
+  var depId = (document.getElementById('obsDepId')||{value:''}).value;
+  var art   = state.articulos.find(function(a){ return a.id === artId; });
+  if (!art || !art.observaciones) return;
+  delete art.observaciones[depId];
+  save();
+  var el = document.getElementById('modalArtObs'); if (el) el.remove();
+  verDetalleDeposito(depId);
+  toast('Observación quitada', 'info');
+}
+
+
+
+// ══════════════════════════════════════════════════════════════════
+// SUB-DEPÓSITO — Crear artículo nuevo manualmente
+// ══════════════════════════════════════════════════════════════════
+function subDepNuevoArt(depId, subId) {
+  var dep = state.depositos.find(function(d){ return d.id === depId; });
+  if (!state.subDepositos || !state.subDepositos[depId]) return;
+  var sub = state.subDepositos[depId].find(function(s){ return s.id === subId; });
+  if (!sub) return;
+
+  var el = document.getElementById('modalSubDepNuevoArt'); if (el) el.remove();
+  var div = document.createElement('div');
+  div.id = 'modalSubDepNuevoArt';
+  div.className = 'modal-overlay open';
+  div.style.zIndex = '10500';
+  div.innerHTML =
+    "<div class=\"modal\" style=\"max-width:520px\">" +
+      "<div class=\"modal-header\">★ Crear artículo nuevo → " + sub.nombre +
+        "<button class=\"close-btn\" onclick=\"document.getElementById('modalSubDepNuevoArt').remove()\">✕</button>" +
+      "</div>" +
+      "<div class=\"modal-body\" style=\"display:flex;flex-direction:column;gap:12px\">" +
+        "<input type=\"hidden\" id=\"sdnaDepId\" value=\"" + depId + "\">" +
+        "<input type=\"hidden\" id=\"sdnaSubId\" value=\"" + subId + "\">" +
+        "<div style=\"padding:8px 12px;background:rgba(74,128,204,.08);border-left:3px solid var(--blue2);border-radius:4px;font-size:11px;color:var(--text2)\">" +
+          "Este artículo se creará en el catálogo general y se asignará al sub-depósito con la cantidad indicada." +
+        "</div>" +
+        "<div class=\"form-group\">" +
+          "<label class=\"form-label\">Nombre del artículo *</label>" +
+          "<input type=\"text\" class=\"form-control\" id=\"sdnaNombre\" placeholder=\"Ej: Tornillo Phillips 3/16\" autofocus>" +
+        "</div>" +
+        "<div style=\"display:grid;grid-template-columns:1fr 1fr;gap:10px\">" +
+          "<div class=\"form-group\">" +
+            "<label class=\"form-label\">Detalle / Marca</label>" +
+            "<input type=\"text\" class=\"form-control\" id=\"sdnaDesc\" placeholder=\"Marca, modelo, etc.\">" +
+          "</div>" +
+          "<div class=\"form-group\">" +
+            "<label class=\"form-label\">Categoría</label>" +
+            "<input type=\"text\" class=\"form-control\" id=\"sdnaCat\" placeholder=\"Ej: Ferretería\">" +
+          "</div>" +
+        "</div>" +
+        "<div style=\"display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px\">" +
+          "<div class=\"form-group\">" +
+            "<label class=\"form-label\">Cantidad *</label>" +
+            "<input type=\"number\" class=\"form-control\" id=\"sdnaQty\" value=\"1\" min=\"0\">" +
+          "</div>" +
+          "<div class=\"form-group\">" +
+            "<label class=\"form-label\">Unidad</label>" +
+            "<input type=\"text\" class=\"form-control\" id=\"sdnaUni\" value=\"unidad\" placeholder=\"unidad, litro, kg...\">" +
+          "</div>" +
+          "<div class=\"form-group\">" +
+            "<label class=\"form-label\">Mínimo</label>" +
+            "<input type=\"number\" class=\"form-control\" id=\"sdnaMin\" value=\"0\" min=\"0\">" +
+          "</div>" +
+        "</div>" +
+      "</div>" +
+      "<div class=\"modal-footer\">" +
+        "<button class=\"btn btn-secondary\" onclick=\"document.getElementById('modalSubDepNuevoArt').remove()\">Cancelar</button>" +
+        "<button class=\"btn btn-primary\" onclick=\"subDepNuevoArtConfirmar()\">✅ Crear y asignar</button>" +
+      "</div>" +
+    "</div>";
+  document.body.appendChild(div);
+  setTimeout(function(){ var n = document.getElementById('sdnaNombre'); if (n) n.focus(); }, 100);
+}
+
+function subDepNuevoArtConfirmar() {
+  var depId  = (document.getElementById('sdnaDepId')||{value:''}).value;
+  var subId  = (document.getElementById('sdnaSubId')||{value:''}).value;
+  var nombre = ((document.getElementById('sdnaNombre')||{value:''}).value||'').trim();
+  var desc   = ((document.getElementById('sdnaDesc')  ||{value:''}).value||'').trim();
+  var cat    = ((document.getElementById('sdnaCat')   ||{value:''}).value||'').trim();
+  var qty    = parseInt((document.getElementById('sdnaQty')||{value:0}).value) || 0;
+  var uni    = ((document.getElementById('sdnaUni')||{value:'unidad'}).value||'unidad').trim().toLowerCase();
+  var min    = parseInt((document.getElementById('sdnaMin')||{value:0}).value) || 0;
+
+  if (!nombre) { toast('El nombre es obligatorio', 'error'); return; }
+
+  // Verificar si ya existe en el catálogo
+  var nombreNorm = toTitleCase(nombre);
+  var existente  = state.articulos.find(function(a){ return a.nombre.toLowerCase() === nombreNorm.toLowerCase(); });
+  var artId;
+  if (existente) {
+    // Sumar al stock del depósito
+    if (!existente.stock) existente.stock = {};
+    existente.stock[depId] = (existente.stock[depId] || 0) + qty;
+    artId = existente.id;
+    toast('Artículo ya existía — se sumó al stock', 'info');
+  } else {
+    // Crear nuevo
+    var nuevo = {
+      id: genId(),
+      nombre: nombreNorm,
+      descripcion: desc ? toTitleCase(desc) : '',
+      categoria: cat ? toTitleCase(cat) : '',
+      unidad: uni,
+      min: min,
+      max: Math.max(qty * 2, 10),
+      stock: {}
+    };
+    nuevo.stock[depId] = qty;
+    state.articulos.push(nuevo);
+    artId = nuevo.id;
+  }
+
+  // Asignar al sub-depósito (o sumar si ya está)
+  subDepInit(depId);
+  var sub = state.subDepositos[depId].find(function(s){ return s.id === subId; });
+  if (!sub.articulos) sub.articulos = [];
+  var ya = sub.articulos.find(function(sa){ return sa.artId === artId; });
+  if (ya) {
+    ya.qty = (ya.qty || 0) + qty;
+  } else {
+    sub.articulos.push({ artId: artId, qty: qty });
+  }
+
+  // Registrar movimiento
+  state.movimientos.push({
+    id: genId(),
+    tipo: 'ingreso',
+    fecha: now(),
+    artId: artId,
+    depId: depId,
+    cantidad: qty,
+    motivo: 'Carga manual sub-depósito',
+    operador: 'Sistema',
+    ref: 'SD-' + new Date().getTime().toString().slice(-6)
+  });
+
+  save();
+  var el = document.getElementById('modalSubDepNuevoArt'); if (el) el.remove();
+  verDetalleDeposito(depId);
+  toast('✅ Artículo creado y asignado al sub-depósito', 'success');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// SUB-DEPÓSITO — Carga masiva
+// ══════════════════════════════════════════════════════════════════
+function subDepCargaMasiva(depId, subId) {
+  if (!state.subDepositos || !state.subDepositos[depId]) return;
+  var sub = state.subDepositos[depId].find(function(s){ return s.id === subId; });
+  if (!sub) return;
+
+  var el = document.getElementById('modalSubDepMasiva'); if (el) el.remove();
+  var div = document.createElement('div');
+  div.id = 'modalSubDepMasiva';
+  div.className = 'modal-overlay open';
+  div.style.zIndex = '10500';
+  div.innerHTML =
+    "<div class=\"modal\" style=\"max-width:680px\">" +
+      "<div class=\"modal-header\">📋 Carga Masiva → " + sub.nombre +
+        "<button class=\"close-btn\" onclick=\"document.getElementById('modalSubDepMasiva').remove()\">✕</button>" +
+      "</div>" +
+      "<div class=\"modal-body\" style=\"display:flex;flex-direction:column;gap:14px\">" +
+        "<input type=\"hidden\" id=\"sdmDepId\" value=\"" + depId + "\">" +
+        "<input type=\"hidden\" id=\"sdmSubId\" value=\"" + subId + "\">" +
+        "<div style=\"padding:10px 12px;background:rgba(74,128,204,.1);border:1px solid rgba(74,128,204,.3);border-radius:6px;font-size:12px;color:var(--text2)\">" +
+          "ℹ️ <strong>Formato:</strong> 4 columnas separadas por <code>TAB</code> (Excel) o <code>,</code> (CSV)." +
+          "<br><strong>Columnas:</strong> Artículo · Detalle/Marca · Cantidad · U.M." +
+          "<br>Cada artículo se creará en el catálogo (o sumará si ya existe) y se asignará a este sub-depósito." +
+        "</div>" +
+        "<div style=\"display:flex;gap:8px;align-items:center\">" +
+          "<button type=\"button\" class=\"btn btn-secondary btn-sm\" onclick=\"document.getElementById('sdmFile').click()\">📁 Subir Excel/CSV</button>" +
+          "<input type=\"file\" id=\"sdmFile\" accept=\".csv,.tsv,.xlsx,.xls,.txt\" style=\"display:none\" onchange=\"subDepCargaMasivaArchivo(event)\">" +
+          "<button type=\"button\" class=\"btn btn-secondary btn-sm\" onclick=\"depositoCargaMasivaPlantilla()\">⬇️ Plantilla</button>" +
+          "<span style=\"font-size:11px;color:var(--text3)\">o pegá los datos abajo:</span>" +
+        "</div>" +
+        "<div class=\"form-group\">" +
+          "<label class=\"form-label\">Datos a cargar</label>" +
+          "<textarea class=\"form-control\" id=\"sdmTexto\" rows=\"10\" style=\"font-family:monospace;font-size:12px\" " +
+            "placeholder=\"Articulo\\tDetalle\\tCantidad\\tU.M.\\nTornillo\\tBremen\\t100\\tunidad\"></textarea>" +
+        "</div>" +
+        "<div id=\"sdmPreview\" style=\"display:none\"></div>" +
+      "</div>" +
+      "<div class=\"modal-footer\">" +
+        "<button class=\"btn btn-secondary\" onclick=\"document.getElementById('modalSubDepMasiva').remove()\">Cancelar</button>" +
+        "<button class=\"btn btn-secondary\" onclick=\"subDepCargaMasivaPreview()\">👁 Ver Preview</button>" +
+        "<button class=\"btn btn-primary\" onclick=\"subDepCargaMasivaConfirmar()\">✅ Cargar al Sub-depósito</button>" +
+      "</div>" +
+    "</div>";
+  document.body.appendChild(div);
+}
+
+function subDepCargaMasivaArchivo(ev) {
+  var file = ev.target.files[0];
+  if (!file) return;
+  var ext = (file.name.split('.').pop() || '').toLowerCase();
+  if (ext === 'csv' || ext === 'tsv' || ext === 'txt') {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      document.getElementById('sdmTexto').value = e.target.result;
+      subDepCargaMasivaPreview();
+    };
+    reader.readAsText(file);
+  } else if (ext === 'xlsx' || ext === 'xls') {
+    if (typeof XLSX === 'undefined') {
+      toast('Para Excel falta cargar SheetJS. Pegá los datos en texto.', 'error');
+      return;
+    }
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        var data = new Uint8Array(e.target.result);
+        var wb   = XLSX.read(data, { type:'array' });
+        var ws   = wb.Sheets[wb.SheetNames[0]];
+        var csv  = XLSX.utils.sheet_to_csv(ws, { FS: '\t' });
+        document.getElementById('sdmTexto').value = csv;
+        subDepCargaMasivaPreview();
+      } catch(err) {
+        toast('Error al leer Excel: ' + err.message, 'error');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+}
+
+function subDepCargaMasivaPreview() {
+  var texto = (document.getElementById('sdmTexto')||{value:''}).value;
+  var rows  = depositoCargaMasivaParse(texto);
+  var prev  = document.getElementById('sdmPreview');
+  if (!prev) return;
+  if (!rows.length) {
+    prev.style.display = 'none';
+    toast('Sin filas válidas', 'error');
+    return;
+  }
+  var html = '<div style="background:var(--bg3);padding:10px;border-radius:6px;border:1px solid var(--border)">';
+  html += '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Preview — ' + rows.length + ' fila(s)</div>';
+  html += '<div style="max-height:240px;overflow-y:auto"><table class="tbl" style="font-size:12px"><thead><tr><th>Artículo</th><th>Detalle</th><th style="text-align:center">Cant.</th><th>U.M.</th><th style="text-align:center">Acción</th></tr></thead><tbody>';
+  rows.forEach(function(r) {
+    var existe = state.articulos.find(function(a){ return a.nombre.toLowerCase() === r.nombre.toLowerCase(); });
+    var accion = existe
+      ? '<span style="color:var(--blue2);font-size:11px">+ Sumar + Asignar</span>'
+      : '<span style="color:var(--green2);font-size:11px">★ Crear + Asignar</span>';
+    html += '<tr><td><strong>' + r.nombre + '</strong></td><td style="font-size:11px;color:var(--text3)">' + r.detalle + '</td>' +
+      '<td style="text-align:center;font-family:Barlow Condensed,sans-serif;font-size:16px;font-weight:700">' + r.cantidad + '</td>' +
+      '<td style="font-size:11px">' + r.unidad + '</td><td style="text-align:center">' + accion + '</td></tr>';
+  });
+  html += '</tbody></table></div></div>';
+  prev.innerHTML = html;
+  prev.style.display = '';
+}
+
+function subDepCargaMasivaConfirmar() {
+  var depId = (document.getElementById('sdmDepId')||{value:''}).value;
+  var subId = (document.getElementById('sdmSubId')||{value:''}).value;
+  var texto = (document.getElementById('sdmTexto')||{value:''}).value;
+  var rows  = depositoCargaMasivaParse(texto);
+  if (!rows.length) { toast('Sin filas para cargar', 'error'); return; }
+
+  subDepInit(depId);
+  var sub = state.subDepositos[depId].find(function(s){ return s.id === subId; });
+  if (!sub) return;
+  if (!sub.articulos) sub.articulos = [];
+
+  var creados = 0;
+  var sumados = 0;
+  var fechaMov = now();
+
+  rows.forEach(function(r) {
+    var nombreNorm = toTitleCase(r.nombre.trim());
+    var existente = state.articulos.find(function(a){ return a.nombre.toLowerCase() === nombreNorm.toLowerCase(); });
+    var artId;
+    if (existente) {
+      if (!existente.stock) existente.stock = {};
+      existente.stock[depId] = (existente.stock[depId] || 0) + r.cantidad;
+      if (!existente.descripcion && r.detalle) existente.descripcion = toTitleCase(r.detalle);
+      artId = existente.id;
+      sumados++;
+    } else {
+      var nuevo = {
+        id: genId(),
+        nombre: nombreNorm,
+        descripcion: r.detalle ? toTitleCase(r.detalle) : '',
+        categoria: '',
+        unidad: r.unidad,
+        min: 0,
+        max: Math.max(r.cantidad * 2, 10),
+        stock: {}
+      };
+      nuevo.stock[depId] = r.cantidad;
+      state.articulos.push(nuevo);
+      artId = nuevo.id;
+      creados++;
+    }
+
+    // Asignar al sub-depósito (o sumar si ya está)
+    var ya = sub.articulos.find(function(sa){ return sa.artId === artId; });
+    if (ya) {
+      ya.qty = (ya.qty || 0) + r.cantidad;
+    } else {
+      sub.articulos.push({ artId: artId, qty: r.cantidad });
+    }
+
+    state.movimientos.push({
+      id: genId(),
+      tipo: 'ingreso',
+      fecha: fechaMov,
+      artId: artId,
+      depId: depId,
+      cantidad: r.cantidad,
+      motivo: 'Carga masiva sub-depósito: ' + sub.nombre,
+      operador: 'Sistema',
+      ref: 'SDM-' + new Date().getTime().toString().slice(-6)
+    });
+  });
+
+  save();
+  var el = document.getElementById('modalSubDepMasiva'); if (el) el.remove();
+  verDetalleDeposito(depId);
+  toast('✅ Sub-depósito: ' + creados + ' nuevo(s), ' + sumados + ' actualizado(s)', 'success');
+}
+
+
 </script>
 
 
@@ -12108,6 +12627,8 @@ function depositoCargaMasivaConfirmar() {
 
   /* Edit controls hidden in visitor mode */
   body.visitor-mode .edit-only { display:none !important; }
+  /* En modo lector: mostrar elementos marcados como reader-show */
+  body.visitor-mode .reader-show { display:inline-block !important; }
   /* Modo Lector — estricto: ocultar también botones de eliminar/editar dinámicos */
   body.visitor-mode .btn-danger:not(.reservar-btn):not(.btn-secondary) { display:none !important; }
   body.visitor-mode button[onclick*="eliminar"]:not(.reservar-btn),
