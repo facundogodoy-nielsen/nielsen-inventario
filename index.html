@@ -5597,9 +5597,17 @@ function pinSetMode(mode) {
 }
 
 function pinLockApp() {
+  sessionStorage.removeItem('nielsen_logged');  // forzar login nuevamente
   sessionStorage.setItem(PIN_KEY, 'reader');
   _pinBuffer = '';
   pinSetMode('reader');
+  // Volver a mostrar splash
+  var splash = document.getElementById('splashScreen');
+  if (splash) {
+    splash.classList.remove('fade-out');
+    splash.style.display = 'flex';
+    splashSelectMode('lector');
+  }
 }
 
 function pinErrorAnimation() {
@@ -5631,10 +5639,13 @@ function pinSuccessAnimation(cb) {
 }
 
 // ── Init ─────────────────────────────────────────────────────────
+// NOTA: el modo se aplica desde splashInit() al completar el login
+// Este bloque solo setea el modo si ya hay sesión activa (lo maneja splashInit)
 (function() {
   const saved = sessionStorage.getItem(PIN_KEY);
-  // Default = reader mode
-  pinSetMode(saved === 'editor' ? 'editor' : 'reader');
+  // NO aplicar modo aquí si no hay sesión — el splash se encarga
+  if (saved !== 'editor' && saved !== 'reader') return;
+  pinSetMode(saved);
 
   // Keyboard on PIN modal
   document.addEventListener('keydown', function(ev) {
@@ -12287,6 +12298,9 @@ function splashLogin() {
     return;
   }
 
+  // Marcar sesión como autenticada
+  sessionStorage.setItem('nielsen_logged', '1');
+
   // Ocultar splash con animación
   var splash = document.getElementById('splashScreen');
   if (splash) {
@@ -12301,20 +12315,22 @@ function splashLogin() {
 }
 
 function splashInit() {
-  // ¿Ya hay sesión guardada?
-  var saved = sessionStorage.getItem(PIN_KEY);
-  if (saved === 'editor' || saved === 'reader') {
-    // Ya ingresó en esta sesión — saltear splash
+  // Solo saltear splash si el usuario YA ingresó su clave en esta sesión
+  var logged = sessionStorage.getItem('nielsen_logged');
+  if (logged === '1') {
+    var saved  = sessionStorage.getItem(PIN_KEY);
     var splash = document.getElementById('splashScreen');
     if (splash) splash.style.display = 'none';
-    pinSetMode(saved);
+    pinSetMode(saved === 'editor' ? 'editor' : 'reader');
     return;
   }
   // Mostrar splash y enfocar input
+  var splash = document.getElementById('splashScreen');
+  if (splash) splash.style.display = 'flex';
   setTimeout(function() {
     var inp = document.getElementById('splashPassInput');
     if (inp) inp.focus();
-  }, 100);
+  }, 150);
 }
 
 
