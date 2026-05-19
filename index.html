@@ -12301,17 +12301,69 @@ function splashLogin() {
   // Marcar sesión como autenticada
   sessionStorage.setItem('nielsen_logged', '1');
 
-  // Ocultar splash con animación
-  var splash = document.getElementById('splashScreen');
-  if (splash) {
-    splash.classList.add('fade-out');
-    setTimeout(function() {
-      splash.style.display = 'none';
-    }, 420);
+  // Mostrar indicador de carga mientras sincroniza
+  var submitBtn = document.querySelector('.splash-submit');
+  if (submitBtn) { submitBtn.textContent = '⏳ Sincronizando...'; submitBtn.disabled = true; }
+
+  var modo = _splashMode === 'editor' ? 'editor' : 'reader';
+
+  // Pull de Supabase antes de mostrar la app
+  function finalizarLogin() {
+    pinSetMode(modo);
+    var splash = document.getElementById('splashScreen');
+    if (splash) {
+      splash.classList.add('fade-out');
+      setTimeout(function() { splash.style.display = 'none'; }, 420);
+    }
+    // Re-renderizar con los datos actualizados
+    try { renderDashboard(); } catch(e) {}
+    try { renderSidebar();   } catch(e) {}
+    var ap = document.querySelector('.panel.active');
+    if (ap) { try { renderPanel(ap.id.replace('panel-','')); } catch(e) {} }
   }
 
-  // Aplicar modo
-  pinSetMode(_splashMode === 'editor' ? 'editor' : 'reader');
+  // Intentar pull de Supabase con timeout de 4s
+  var pulled  = false;
+  var timeout = setTimeout(function() {
+    if (!pulled) { pulled = true; finalizarLogin(); }
+  }, 4000);
+
+  try {
+    fetch(REST_URL + '&select=state_data,updated_at', { method:'GET', headers:sbHeaders() })
+    .then(function(r){ return r.json(); })
+    .then(function(rows) {
+      if (!pulled) {
+        pulled = true;
+        clearTimeout(timeout);
+        if (Array.isArray(rows) && rows.length > 0 && rows[0].state_data) {
+          var remote = rows[0].state_data;
+          if (Object.keys(remote).length > 0) {
+            state = remote;
+            // Migrar sub-estados faltantes
+            if (!state.depositos)         state.depositos         = [];
+            if (!state.articulos)         state.articulos         = [];
+            if (!state.movimientos)       state.movimientos       = [];
+            if (!state.ropa)              state.ropa              = { prendas:[], personal:[], entregas:[] };
+            if (!state.aguagas)           state.aguagas           = { items:[], movimientos:[] };
+            if (!state.ropacama)          state.ropacama          = { items:[], movimientos:[] };
+            if (!state.herramientas)      state.herramientas      = { items:[], controles:[] };
+            if (!state.insumos)           state.insumos           = { areas:[], items:[], movimientos:[] };
+            if (!state.operativoInvierno) state.operativoInvierno = { items:[] };
+            if (!state.reservas)          state.reservas          = [];
+            if (!state.subDepositos)      state.subDepositos      = {};
+            if (!state.herrGrupos)        state.herrGrupos        = {};
+            localStorage.setItem('nielsen_inventario', JSON.stringify(state));
+          }
+        }
+        finalizarLogin();
+      }
+    })
+    .catch(function() {
+      if (!pulled) { pulled = true; clearTimeout(timeout); finalizarLogin(); }
+    });
+  } catch(e) {
+    if (!pulled) { pulled = true; clearTimeout(timeout); finalizarLogin(); }
+  }
 }
 
 function splashInit() {
