@@ -518,8 +518,17 @@
 
 
 <div class="header">
+  <button id="sidebarToggle" onclick="toggleSidebar()" title="Mostrar/ocultar menú"
+    style="background:none;border:none;cursor:pointer;padding:8px;margin-right:6px;
+           display:flex;flex-direction:column;gap:4px;border-radius:8px;transition:background .15s"
+    onmouseover="this.style.background='rgba(255,255,255,.08)'"
+    onmouseout="this.style.background='none'">
+    <span style="display:block;width:22px;height:2.5px;background:var(--accent);border-radius:2px"></span>
+    <span style="display:block;width:22px;height:2.5px;background:var(--accent);border-radius:2px"></span>
+    <span style="display:block;width:22px;height:2.5px;background:var(--accent);border-radius:2px"></span>
+  </button>
   <div class="header-logo">
-    <img src="data:image/jpeg;base64,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" alt="Nielsen Logística" class="logo-img">
+    <img src="data:image/jpeg;base64,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" alt="Nielsen Logística" class="logo-img" style="mix-blend-mode:lighten;background:transparent">
     <div class="logo-text-block">
       <div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;
                   letter-spacing:1px;color:#ff8c42;text-transform:uppercase;line-height:1">
@@ -812,22 +821,22 @@
     <!-- ===== STOCK GLOBAL ===== -->
     <div id="panel-stock" class="panel">
       <div class="page-title">Stock Global</div>
-      <div class="page-sub">Vista consolidada de todo el inventario por artículo y depósito</div>
-      <div class="card">
-        <table class="tbl" id="stockGlobalTbl">
-          <thead>
-            <tr>
-              <th>Artículo</th>
-              <th>Categoría</th>
-              <th>Unidad</th>
-              <th>Stock Total</th>
-              <th>Estado</th>
-              <th id="stockDepHeaders"></th>
-            </tr>
-          </thead>
-          <tbody id="stockGlobalTbody"></tbody>
-        </table>
+      <div class="page-sub">Vista consolidada de todo el inventario · Consultá la ubicación de cada artículo</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin:16px 0">
+        <input type="text" class="form-control" id="stockBuscar" placeholder="🔍 Buscar artículo..."
+               oninput="renderStockGlobal()" style="flex:1;min-width:200px">
+        <select class="form-control" id="stockSeccionFiltro" onchange="renderStockGlobal()" style="width:auto">
+          <option value="">Todas las secciones</option>
+          <option value="articulos">📦 Artículos</option>
+          <option value="indumentaria">👕 Indumentaria Laboral</option>
+          <option value="epp">🦺 EPP</option>
+          <option value="herramientas">🔧 Herramientas</option>
+          <option value="insumos">🧴 Insumos</option>
+          <option value="aguagas">💧 Agua y Gas</option>
+          <option value="ropacama">🛏 Ropa de Cama</option>
+        </select>
       </div>
+      <div id="stockGlobalContent"></div>
     </div>
 
 
@@ -865,13 +874,13 @@
             </svg>
           </div>
           <div>
-            <div class="page-title" style="font-size:24px">Equipamiento / Indumentaria Personal</div>
-            <div class="page-sub">Stock por prenda y talla · Historial de entregas por persona</div>
+            <div class="page-title" style="font-size:24px" id="ropaPanelTitle">Indumentaria Laboral</div>
+            <div class="page-sub" id="ropaPanelSub">Stock por prenda y talla · Historial de entregas por persona</div>
           </div>
         </div>
         <div style="display:flex;gap:8px">
-          <button class="btn btn-secondary" id="ropaBtnAddPersona" onclick="openModalPersona()">+ Persona</button>
-          <button class="btn btn-primary"   id="ropaBtnAddPrenda"  onclick="openModalPrenda()">+ Prenda</button>
+          <button class="btn btn-secondary edit-only" id="ropaBtnAddPersona" onclick="openModalPersona()">+ Persona</button>
+          <button class="btn btn-primary edit-only" id="ropaBtnAddPrenda" onclick="openModalPrenda()">+ Prenda</button>
         </div>
       </div>
 
@@ -1282,7 +1291,7 @@
           <div class="page-title">💧 Agua y Gas</div>
           <div class="page-sub">Stock de agua y gas por depósito · Totales consolidados</div>
         </div>
-        <button class="btn btn-primary edit-only" onclick="aguagasAbrirMovimiento()">+ Movimiento</button>
+        <button class="btn btn-primary edit-only" onclick="aguagasAbrirMovimiento()">+ Artículo</button>
       </div>
       <div id="aguagasContent"></div>
     </div>
@@ -2130,6 +2139,8 @@
 <div id="toast-container"></div>
 
 <script>
+var _sbReady = false;  // set true once sidebar prefs are initialized
+
 // ============================================================
 // DATA STORE
 // ============================================================
@@ -2197,6 +2208,22 @@ function initData() {
     if (!state.herramientas)               state.herramientas               = { items:[], controles:[] };
     if (!state.herramientas.items)         state.herramientas.items         = [];
     if (!state.herramientas.controles)     state.herramientas.controles     = [];
+    // ── One-time migration: aguagas new structure (estados) ──
+    if (!state._aguagasV2) {
+      // Reset to new default items with estados model
+      var oldItems = (state.aguagas && state.aguagas.items) || [];
+      state.aguagas = { items: [], movimientos: (state.aguagas && state.aguagas.movimientos) || [] };
+      // aguagasInit() will seed the new defaults on next render
+      state._aguagasV2 = true;
+    }
+    // ── One-time migration: ropacama estados ──
+    if (!state._ropacamaV2) {
+      (state.ropacama.items || []).forEach(function(it) {
+        if (!it.estados) it.estados = { limpio: it.stock || 0, sucio: 0, descarte: 0 };
+        if (it.min === undefined) it.min = 5;
+      });
+      state._ropacamaV2 = true;
+    }
     return;
   }
 
@@ -2243,8 +2270,8 @@ function save() { localStorage.setItem('nielsen_inventario', JSON.stringify(stat
 // Then set SUPABASE_URL and SUPABASE_ANON_KEY below.
 // ══════════════════════════════════════════════════════════════════
 
-const SUPABASE_URL      = 'https://mjkyehhakbeqbldmnthb.supabase.co';  // e.g. 'https://xxxx.supabase.co'
-const SUPABASE_ANON_KEY = 'sb_publishable_sn4ybvVOMAzHc_8x5NvCzg_z6ybZKCy';  // your anon/public key
+const SUPABASE_URL      = 'https://mjkyehhakbeqbldmnthb.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_sn4ybvVOMAzHc_8x5NvCzg_z6ybZKCy';
 const SUPABASE_ROW_ID   = 'nielsen-inventario-v1';  // single row key
 
 var _sbSyncEnabled = !!(SUPABASE_URL && SUPABASE_ANON_KEY);
@@ -2288,22 +2315,35 @@ function supabasePush() {
 // ── Pull state from Supabase ──────────────────────────────────────
 function supabasePull(onDone) {
   if (!_sbSyncEnabled) { if (onDone) onDone(false); return; }
-  fetch(SUPABASE_URL + '/rest/v1/inventario?id=eq.' + SUPABASE_ROW_ID + '&select=data,updated_at', {
+  fetch(SUPABASE_URL + '/rest/v1/inventario?id=eq.' + encodeURIComponent(SUPABASE_ROW_ID) + '&select=data,updated_at', {
     headers: {
       'apikey': SUPABASE_ANON_KEY,
       'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
     },
   })
-  .then(function(res) { return res.json(); })
+  .then(function(res) {
+    if (!res.ok) {
+      // Table missing (404) or auth error — log quietly, keep using localStorage
+      return res.text().then(function(t) {
+        console.warn('Supabase respondió ' + res.status + ': ' + t);
+        if (res.status === 404 || /relation .* does not exist/i.test(t)) {
+          supabaseSetStatus('notable');
+        } else {
+          supabaseSetStatus('offline');
+        }
+        if (onDone) onDone(false);
+        return null;
+      });
+    }
+    return res.json();
+  })
   .then(function(rows) {
+    if (rows === null) return;  // already handled above
     if (rows && rows.length && rows[0].data) {
-      var remoteData  = rows[0].data;
       var remoteTime  = new Date(rows[0].updated_at).getTime();
-      var localRaw    = localStorage.getItem('nielsen_inventario');
       var localTime   = parseInt(localStorage.getItem('nielsen_inventario_ts') || '0');
       if (remoteTime > localTime) {
-        // Remote is newer — use it
-        state = remoteData;
+        state = rows[0].data;
         localStorage.setItem('nielsen_inventario', JSON.stringify(state));
         localStorage.setItem('nielsen_inventario_ts', remoteTime.toString());
         supabaseSetStatus('synced');
@@ -2313,12 +2353,14 @@ function supabasePull(onDone) {
         if (onDone) onDone(false);
       }
     } else {
-      // No remote data yet
+      // Table exists but no row yet — that's fine, push will create it
+      supabaseSetStatus('synced');
       if (onDone) onDone(false);
     }
   })
   .catch(function(err) {
-    console.warn('Supabase pull failed:', err);
+    // Network error / CORS / offline — non-fatal, app keeps working locally
+    console.warn('Supabase pull no disponible:', err && err.message ? err.message : err);
     supabaseSetStatus('offline');
     if (onDone) onDone(false);
   });
@@ -2328,8 +2370,8 @@ function supabasePull(onDone) {
 function supabaseSetStatus(status) {
   var el = document.getElementById('sbSyncStatus');
   if (!el) return;
-  var icons = { synced:'☁ Sincronizado', syncing:'↻ Sincronizando…', error:'⚠ Error sync', offline:'○ Sin conexión', disabled:'― Sin Supabase' };
-  var colors = { synced:'var(--green2)', syncing:'var(--yellow2)', error:'var(--red2)', offline:'var(--text3)', disabled:'var(--text3)' };
+  var icons = { synced:'☁ Sincronizado', syncing:'↻ Sincronizando…', error:'⚠ Error sync', offline:'○ Sin conexión', disabled:'― Sin Supabase', notable:'⚙ Falta crear tabla' };
+  var colors = { synced:'var(--green2)', syncing:'var(--yellow2)', error:'var(--red2)', offline:'var(--text3)', disabled:'var(--text3)', notable:'var(--yellow2)' };
   el.textContent = icons[status] || status;
   el.style.color = colors[status] || 'var(--text3)';
 }
@@ -2386,7 +2428,9 @@ function depIcono(tipo) {
 // ============================================================
 function showPanel(name) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-  var panelEl = document.getElementById('panel-' + name);
+  // 'epp' shares the same panel as 'ropa'
+  var panelName = (name === 'epp') ? 'ropa' : name;
+  var panelEl = document.getElementById('panel-' + panelName);
   if (panelEl) panelEl.classList.add('active');
   // Update sidebar active state
   document.querySelectorAll('.sb-item').forEach(function(el) {
@@ -2408,7 +2452,8 @@ function renderPanel(name) {
   if (name === 'traspaso')     renderHistorialTraspasos();
   if (name === 'ingresos')     renderListaIngresos();
   if (name === 'egresos')      renderListaEgresos();
-  if (name === 'ropa')         renderRopaPanel();
+  if (name === 'ropa')         { _ropaGrupo = 'indumentaria'; showRopaPanel(); }
+  if (name === 'epp')          { _ropaGrupo = 'epp'; showRopaPanel(); }
   if (name === 'aguagas')      renderAguagas();
   if (name === 'ropacama')     renderRopacama();
   if (name === 'insumos')      renderInsumos();
@@ -2813,86 +2858,73 @@ function dashResizeEnd(e) {
   document.removeEventListener('mouseup',   dashResizeEnd);
   _dashResize = null;
 }
+const AGUAGAS_DEFAULTS = [
+  { id:'ag1', nombre:'Botella Agua Mineral 1500cc', tipo:'agua', unidad:'unidades', usaEstados:false },
+  { id:'ag2', nombre:'Botella Agua Mineral 1650cc', tipo:'agua', unidad:'unidades', usaEstados:false },
+  { id:'ag3', nombre:'Botella Agua Mineral 2000cc', tipo:'agua', unidad:'unidades', usaEstados:false },
+  { id:'ag4', nombre:'Bidón Agua Tratada 20Lts',    tipo:'agua', unidad:'bidones',  usaEstados:true  },
+  { id:'ag5', nombre:'Garrafa de Gas 45Kg',         tipo:'gas',  unidad:'garrafas', usaEstados:true  },
+  { id:'ag6', nombre:'Garrafa de Gas 15Kg',         tipo:'gas',  unidad:'garrafas', usaEstados:true  },
+];
+
 function renderDashConsumo() {
   // Always initialize aguagas before rendering
-  if (!state.aguagas)           state.aguagas           = { items:[], movimientos:[] };
-  if (!state.aguagas.items)     state.aguagas.items     = [];
+  if (!state.aguagas)             state.aguagas             = { items:[], movimientos:[] };
+  if (!state.aguagas.items)       state.aguagas.items       = [];
   if (!state.aguagas.movimientos) state.aguagas.movimientos = [];
-  // Seed defaults if empty
   if (!state.aguagas.items.length) {
-    state.aguagas.items = AGUAGAS_DEFAULTS.map(function(i){ return Object.assign({}, i, { stock:{} }); });
+    state.aguagas.items = AGUAGAS_DEFAULTS.map(function(i) {
+      return { id:i.id, nombre:i.nombre, tipo:i.tipo, unidad:i.unidad,
+               usaEstados:i.usaEstados, estados:{ enUso:0, lleno:0, vacio:0 }, min:5 };
+    });
   }
-  const el = document.getElementById('dashConsumo');
+  // ensure estados exist
+  state.aguagas.items.forEach(function(it) {
+    if (!it.estados) it.estados = { enUso:0, lleno:(it.stock?Object.values(it.stock).reduce(function(s,v){return s+v;},0):0), vacio:0 };
+  });
 
-  // IDs de los artículos que queremos mostrar en el dashboard
+  // Watch the most relevant items
   const WATCH = [
-    { id:'ag1', label:'Agua Mineral 1500cc',    icon:'🍶', unit:'botellas',  color:'#4a9fd8' },
-    { id:'ag2', label:'Bidones 20Lt (llenos)',  icon:'💧', unit:'bidones',   color:'#4a9fd8' },
-    { id:'ag4', label:'Garrafas Gas 45Kg (llenas)', icon:'🔥', unit:'garrafas', color:'#e05c1a' },
+    { id:'ag1', label:'Agua Mineral 1500cc',     icon:'🍶', color:'#4a9fd8' },
+    { id:'ag4', label:'Bidón 20Lt',              icon:'💧', color:'#4a9fd8' },
+    { id:'ag5', label:'Garrafa 45Kg',            icon:'🔥', color:'#e05c1a' },
+    { id:'ag6', label:'Garrafa 15Kg',            icon:'🔥', color:'#e05c1a' },
   ];
 
-  const cards = WATCH.map(w => {
-    const item = state.aguagas.items.find(i => i.id === w.id);
+  const cards = WATCH.map(function(w) {
+    const item = state.aguagas.items.find(function(i){ return i.id === w.id; });
     if (!item) return '';
-    const total = Object.values(item.stock || {}).reduce((s, v) => s + v, 0);
+    const e = item.estados || {};
+    const total = (e.enUso||0) + (e.lleno||0) + (e.vacio||0);
+    const st = total <= 0 ? 'red' : total <= (item.min||0) ? 'yellow' : 'green';
+    const stColor = st==='green'?'var(--green2)':st==='yellow'?'var(--yellow2)':'var(--red2)';
+    let breakdown = '';
+    if (item.usaEstados) {
+      breakdown = '<div style="display:flex;gap:8px;margin-top:4px;font-size:10px;color:var(--text3)">' +
+        '<span>Lleno: <strong style="color:var(--green2)">' + (e.lleno||0) + '</strong></span>' +
+        '<span>En uso: <strong style="color:var(--blue2)">' + (e.enUso||0) + '</strong></span>' +
+        '<span>Vacío: <strong style="color:var(--text2)">' + (e.vacio||0) + '</strong></span>' +
+        '</div>';
+    }
+    return '<div style="flex:1;min-width:140px;background:var(--bg3);border:1px solid var(--border);' +
+      'border-left:3px solid ' + w.color + ';border-radius:8px;padding:10px 14px">' +
+      '<div style="font-size:11px;color:var(--text3);margin-bottom:2px">' + w.icon + ' ' + w.label + '</div>' +
+      '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:26px;font-weight:700;color:' + stColor + ';line-height:1">' + total + '</div>' +
+      breakdown +
+      '</div>';
+  }).filter(Boolean).join('');
 
-    // Per-deposito breakdown (only deps with stock > 0)
-    const deps = Object.entries(item.stock || {})
-      .filter(([,qty]) => qty > 0)
-      .map(([depId, qty]) => {
-        const dep = state.depositos.find(d => d.id === depId);
-        return dep ? `<span style="font-size:11px;color:var(--text3)">${dep.nombre}: <strong style="color:var(--text2)">${qty}</strong></span>` : '';
-      })
-      .filter(Boolean)
-      .join(' &nbsp;·&nbsp; ');
-
-    return `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;
-                 padding:16px 20px;display:flex;align-items:center;gap:16px;flex:1;min-width:180px">
-      <div style="font-size:28px;flex-shrink:0">${w.icon}</div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
-             color:var(--text3);margin-bottom:4px">${w.label}</div>
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:36px;font-weight:700;
-             line-height:1;color:${w.color}">${total}</div>
-        <div style="font-size:10px;color:var(--text3);margin-top:2px">${w.unit} en total</div>
-        ${deps ? `<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px">${deps}</div>` : ''}
-      </div>
-      <button onclick="showPanel('aguagas')" title="Ver detalle"
-        style="background:none;border:1px solid var(--border);border-radius:6px;
-               padding:5px 9px;color:var(--text3);cursor:pointer;font-size:11px;
-               flex-shrink:0;transition:all .15s"
-        onmouseover="this.style.borderColor='${w.color}';this.style.color='${w.color}'"
-        onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">→</button>
-    </div>`;
-  }).join('');
-
-  // Show widget even if all zeros
-
-  // Fill into the widget body if it exists (dashboard grid), otherwise standalone div
   const widgetBody = document.getElementById('w-consumo-body');
   if (widgetBody) {
-    widgetBody.innerHTML = `<div style="padding:12px 16px;display:flex;gap:12px;flex-wrap:wrap">${cards}</div>`;
-  } else if (el) {
-    el.innerHTML = `
-      <div class="card" style="margin-top:0">
-        <div class="card-header">
-          💧 Agua &amp; Gas — Stock actual
-          <button class="btn btn-secondary btn-sm" onclick="showPanel('aguagas')">Ver todo</button>
-        </div>
-        <div class="card-body" style="padding:12px 16px">
-          <div style="display:flex;gap:12px;flex-wrap:wrap">${cards}</div>
-        </div>
-      </div>`;
+    widgetBody.innerHTML = '<div style="display:flex;gap:10px;flex-wrap:wrap">' + (cards || '<div style="color:var(--text3);font-size:12px">Sin datos de agua/gas</div>') + '</div>';
+  }
+  const el = document.getElementById('dashConsumo');
+  if (el) {
+    el.innerHTML = '<div class="card" style="margin-top:0"><div class="card-header">💧 Agua &amp; Gas — Stock actual' +
+      '<button class="btn btn-secondary btn-sm" onclick="showPanel(\'aguagas\')">Ver todo</button></div>' +
+      '<div class="card-body" style="padding:12px 16px"><div style="display:flex;gap:10px;flex-wrap:wrap">' + cards + '</div></div></div>';
   }
 }
-
-// ============================================================
-// DEPÓSITOS
-// ============================================================
-
-// ── Deposit filter ────────────────────────────────────────────────
-var _depFiltroActivo = '';
-
 function depFiltrar(tipo) {
   _depFiltroActivo = tipo;
   // Update button styles
@@ -4518,29 +4550,198 @@ function alertaItem(a, nivel) {
 // STOCK GLOBAL
 // ============================================================
 function renderStockGlobal() {
-  const deps = state.depositos;
-  const thead = document.querySelector('#stockGlobalTbl thead tr');
-  // rebuild headers
-  thead.innerHTML = `<th>Artículo</th><th>Categoría</th><th>Unidad</th><th>Total</th><th>Estado</th>` +
-    deps.map(d => `<th style="font-size:10px;max-width:80px;white-space:normal">${d.nombre}</th>`).join('');
+  const cont = document.getElementById('stockGlobalContent');
+  if (!cont) return;
+  const q       = (document.getElementById('stockBuscar') || {value:''}).value.toLowerCase().trim();
+  const secFilt = (document.getElementById('stockSeccionFiltro') || {value:''}).value;
 
-  const tbody = document.getElementById('stockGlobalTbody');
-  tbody.innerHTML = state.articulos.map(a => {
-    const total = getStockTotal(a);
-    const [cls, lbl] = getStockLabel(a);
-    const depCols = deps.map(d => {
-      const qty = a.stock[d.id] || 0;
-      return `<td style="text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:${qty>0?'700':'400'};color:${qty>0?'var(--text)':'var(--text3)'}">${qty > 0 ? qty : '—'}</td>`;
-    }).join('');
-    return `<tr>
-      <td><strong>${a.nombre}</strong></td>
-      <td><span class="badge badge-gray">${a.categoria||'—'}</span></td>
-      <td style="color:var(--text3)">${a.unidad||'—'}</td>
-      <td><span style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700">${total}</span></td>
-      <td><span class="badge ${cls}">${lbl}</span></td>
-      ${depCols}
-    </tr>`;
-  }).join('');
+  // Build unified list of all stock items across modules
+  const secciones = [];
+
+  // ── 1. Artículos ──
+  const arts = (state.articulos || []).map(function(a) {
+    return {
+      nombre: a.nombre, unidad: a.unidad || 'u',
+      total: getStockTotal(a),
+      ubicaciones: Object.entries(a.stock || {}).filter(function(e){ return e[1] > 0; })
+        .map(function(e){ return { dep: depNombreById(e[0]), qty: e[1] }; }),
+      status: getStockStatus(a),
+    };
+  });
+  secciones.push({ key:'articulos', label:'📦 Artículos', items: arts });
+
+  // ── 2. Indumentaria + EPP ──
+  ['indumentaria','epp'].forEach(function(grupo) {
+    const prendas = (state.ropa && state.ropa.prendas || []).filter(function(p){ return (p.grupo||'indumentaria') === grupo; });
+    const items = prendas.map(function(p) {
+      const tallas = p.tallas || {};
+      let total = 0;
+      const ubic = [];
+      Object.entries(tallas).forEach(function(e) {
+        const talla = e[0], td = e[1];
+        const st = (td && td.stock) || 0;
+        total += st;
+        if (st > 0) ubic.push({ dep: 'Talle ' + talla, qty: st });
+      });
+      return { nombre: p.nombre, unidad: 'u', total: total, ubicaciones: ubic,
+               status: total <= 0 ? 'red' : 'green' };
+    });
+    secciones.push({
+      key: grupo,
+      label: grupo === 'epp' ? '🦺 EPP' : '👕 Indumentaria Laboral',
+      items: items,
+    });
+  });
+
+  // ── 3. Herramientas ──
+  const herrItems = (state.herramientas && state.herramientas.items || []).map(function(h) {
+    return { nombre: h.nombre, unidad: h.unidad || 'u', total: h.cantidad || 0,
+             ubicaciones: [{ dep: h.area || 'Sin área', qty: h.cantidad || 0 }],
+             status: (h.cantidad||0) <= 0 ? 'red' : 'green' };
+  });
+  secciones.push({ key:'herramientas', label:'🔧 Herramientas', items: herrItems });
+
+  // ── 4. Insumos ──
+  const insItems = (state.insumos && state.insumos.items || []).map(function(i) {
+    const area = (state.insumos.areas || []).find(function(a){ return a.id === i.areaId; });
+    return { nombre: i.nombre, unidad: i.unidad || 'u', total: i.stock || 0,
+             ubicaciones: [{ dep: area ? area.nombre : 'Sin área', qty: i.stock || 0 }],
+             status: (i.stock||0) <= 0 ? 'red' : (i.stock <= (i.min||1) ? 'yellow' : 'green') };
+  });
+  secciones.push({ key:'insumos', label:'🧴 Insumos', items: insItems });
+
+  // ── 5. Agua y Gas (con estados EN USO / LLENO / VACIO) ──
+  const agItems = [];
+  (state.aguagas && state.aguagas.items || []).forEach(function(it) {
+    const e = it.estados || { enUso:0, lleno:0, vacio:0 };
+    const total = (e.enUso||0) + (e.lleno||0) + (e.vacio||0);
+    const ubic = [];
+    if (e.enUso > 0) ubic.push({ dep: 'En Uso', qty: e.enUso });
+    if (e.lleno > 0) ubic.push({ dep: 'Lleno', qty: e.lleno });
+    if (e.vacio > 0) ubic.push({ dep: 'Vacío', qty: e.vacio });
+    // If item uses estados, create separate stock global rows with label suffix
+    if (it.usaEstados) {
+      ['enUso','lleno','vacio'].forEach(function(est) {
+        const qty = e[est] || 0;
+        const label = { enUso:'En Uso', lleno:'Lleno', vacio:'Vacío' }[est];
+        agItems.push({
+          nombre: it.nombre + ' — ' + label, unidad: it.unidad || 'u',
+          total: qty, ubicaciones: qty > 0 ? [{ dep: label, qty: qty }] : [],
+          status: qty <= 0 ? 'red' : 'green',
+        });
+      });
+    } else {
+      agItems.push({
+        nombre: it.nombre, unidad: it.unidad || 'u', total: total,
+        ubicaciones: ubic, status: total <= 0 ? 'red' : (total <= (it.min||0) ? 'yellow' : 'green'),
+      });
+    }
+  });
+  secciones.push({ key:'aguagas', label:'💧 Agua y Gas', items: agItems });
+
+  // ── 6. Ropa de Cama (LIMPIO / SUCIO / DESCARTE) ──
+  const rcItems = (state.ropacama && state.ropacama.items || []).map(function(it) {
+    const e = it.estados || { limpio:0, sucio:0, descarte:0 };
+    const total = (e.limpio||0) + (e.sucio||0) + (e.descarte||0);
+    const ubic = [];
+    if (e.limpio > 0)   ubic.push({ dep: 'Limpio', qty: e.limpio });
+    if (e.sucio > 0)    ubic.push({ dep: 'Sucio', qty: e.sucio });
+    if (e.descarte > 0) ubic.push({ dep: 'Descarte', qty: e.descarte });
+    return { nombre: it.nombre, unidad: 'u', total: total,
+             ubicaciones: ubic,
+             status: (e.limpio||0) <= 0 ? 'red' : ((e.limpio||0) <= (it.min||1) ? 'yellow' : 'green') };
+  });
+  secciones.push({ key:'ropacama', label:'🛏 Ropa de Cama', items: rcItems });
+
+  // ── Render ──
+  let html = '';
+  let totalShown = 0;
+
+  secciones.forEach(function(sec) {
+    if (secFilt && secFilt !== sec.key) return;
+    let items = sec.items;
+    if (q) items = items.filter(function(it){ return it.nombre.toLowerCase().includes(q); });
+    if (!items.length) return;
+    totalShown += items.length;
+
+    html += '<div style="margin-bottom:24px">' +
+      '<div style="font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;' +
+        'color:var(--accent);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)">' +
+        sec.label + ' <span style="color:var(--text3);font-weight:400">(' + items.length + ')</span>' +
+      '</div>';
+
+    html += '<div style="overflow-x:auto"><table class="tbl"><thead><tr>' +
+      '<th>Artículo</th><th style="text-align:center;width:110px">Stock Total</th>' +
+      '<th style="text-align:center;width:90px">Estado</th>' +
+      '<th style="text-align:right;width:120px"></th>' +
+      '</tr></thead><tbody>';
+
+    items.sort(function(a,b){ return a.nombre.localeCompare(b.nombre, 'es'); }).forEach(function(it, i) {
+      const stColor = it.status === 'green' ? 'var(--green2)' : it.status === 'yellow' ? 'var(--yellow2)' : 'var(--red2)';
+      const stLabel = it.status === 'green' ? 'OK' : it.status === 'yellow' ? 'Bajo' : 'Sin stock';
+      const rowId = 'stkrow-' + sec.key + '-' + i;
+      const ubicJson = encodeURIComponent(JSON.stringify(it.ubicaciones));
+      html += '<tr>' +
+        '<td><strong>' + it.nombre + '</strong></td>' +
+        '<td style="text-align:center">' +
+          '<span style="font-family:\'Barlow Condensed\',sans-serif;font-size:20px;font-weight:700">' + it.total + '</span>' +
+          '<span style="color:var(--text3);font-size:11px"> ' + it.unidad + '</span></td>' +
+        '<td style="text-align:center"><span class="badge" style="background:' + stColor + '18;color:' + stColor + ';border:1px solid ' + stColor + '40">' + stLabel + '</span></td>' +
+        '<td style="text-align:right">' +
+          '<button class="btn btn-secondary btn-sm reader-ok" onclick="stockConsultar(this,\'' + ubicJson + '\',\'' + it.nombre.replace(/[\'\\\\]/g,'') + '\')">🔍 Consultar</button>' +
+        '</td>' +
+        '</tr>' +
+        '<tr id="' + rowId + '" style="display:none"><td colspan="4" style="padding:0;background:var(--bg3)">' +
+          '<div class="stk-detalle" style="padding:0 14px"></div>' +
+        '</td></tr>';
+    });
+
+    html += '</tbody></table></div></div>';
+  });
+
+  if (!totalShown) {
+    html = '<div class="empty-state"><div class="empty-icon">📊</div><p>No se encontraron artículos' +
+      (q ? ' para "' + q + '"' : '') + '</p></div>';
+  }
+
+  cont.innerHTML = html;
+}
+
+// ── Toggle deposit detail for a stock item ────────────────────────
+function stockConsultar(btn, ubicJson, nombre) {
+  const row = btn.closest('tr');
+  const detailRow = row.nextElementSibling;
+  if (!detailRow) return;
+  const isOpen = detailRow.style.display !== 'none';
+  // Close all other open detail rows
+  document.querySelectorAll('#stockGlobalContent tr[id^="stkrow-"]').forEach(function(r) {
+    r.style.display = 'none';
+  });
+  if (isOpen) { btn.textContent = '🔍 Consultar'; return; }
+
+  let ubic = [];
+  try { ubic = JSON.parse(decodeURIComponent(ubicJson)); } catch(e) {}
+  const det = detailRow.querySelector('.stk-detalle');
+
+  if (!ubic.length) {
+    det.innerHTML = '<div style="padding:12px;color:var(--text3);font-size:13px">Sin existencias registradas en ningún depósito.</div>';
+  } else {
+    let h = '<div style="padding:12px 0">' +
+      '<div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:8px">' +
+        'Existencias de ' + nombre + ' por ubicación</div>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:8px">';
+    ubic.forEach(function(u) {
+      h += '<div style="display:flex;align-items:center;gap:8px;background:var(--bg2);border:1px solid var(--border);' +
+        'border-radius:8px;padding:8px 14px">' +
+        '<span style="font-size:13px;color:var(--text2)">📍 ' + u.dep + '</span>' +
+        '<span style="font-family:\'Barlow Condensed\',sans-serif;font-size:18px;font-weight:700;color:var(--accent)">' + u.qty + '</span>' +
+        '</div>';
+    });
+    h += '</div></div>';
+    det.innerHTML = h;
+  }
+  detailRow.style.display = '';
+  btn.textContent = '✕ Cerrar';
 }
 
 // ============================================================
@@ -4704,6 +4905,10 @@ function pinSetMode(mode) {
     if (readerBadge) readerBadge.style.display = 'flex';
     if (editorBadge) editorBadge.style.display = 'none';
   }
+  // Re-render sidebar only after boot has initialized it (avoid TDZ)
+  if (_sbReady && document.getElementById('sidebarSections')) {
+    try { renderSidebar(); } catch(e) {}
+  }
 }
 
 function pinLockApp() {
@@ -4764,7 +4969,7 @@ function pinSuccessAnimation(cb) {
 // SIDEBAR — drag-to-reorder sections and items
 // ══════════════════════════════════════════════════════════════════
 
-const SIDEBAR_KEY = 'nielsen_sidebar_v3';  // v3: new section structure
+const SIDEBAR_KEY = 'nielsen_sidebar_v4';  // v4: EPP + renamed
 
 // Define sections and items (default order)
 const SIDEBAR_DEF = [
@@ -4775,7 +4980,8 @@ const SIDEBAR_DEF = [
   ]},
   { id:'inventario', label:'Inventario', items:[
     { panel:'articulos',    icon:'📦', label:'Artículos' },
-    { panel:'ropa',         icon:'👕', label:'Equipamiento', badgeId:'ropaBadge' },
+    { panel:'ropa',         icon:'👕', label:'Indumentaria Laboral', badgeId:'ropaBadge' },
+    { panel:'epp',          icon:'🦺', label:'EPP', badgeId:'eppBadge' },
     { panel:'herramientas', icon:'🔧', label:'Herramientas', badgeId:'herramientasBadge' },
     { panel:'insumos',      icon:'🧴', label:'Insumos',      badgeId:'insumosBadge' },
   ]},
@@ -4799,15 +5005,42 @@ let _sbItems    = {};    // { sectionId: [panelIds in order] }
 
 function sbLoadPrefs() {
   if (_sbSections) return;
-  try {
-    const s = JSON.parse(localStorage.getItem(SIDEBAR_KEY) || 'null');
-    if (s && Array.isArray(s.sections)) {
-      _sbSections = s.sections;
-      _sbItems    = s.items || {};
-      return;
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(SIDEBAR_KEY) || 'null'); } catch(e) {}
+
+  if (saved && Array.isArray(saved.sections)) {
+    _sbSections = saved.sections;
+    _sbItems    = saved.items || {};
+  } else {
+    sbResetPrefs();
+  }
+
+  // ── MERGE: ensure every section/item from SIDEBAR_DEF exists ──
+  // (so new sections appear even with an old saved layout)
+  const defSecIds = SIDEBAR_DEF.map(function(s){ return s.id; });
+  // Add any missing sections (in their default position)
+  defSecIds.forEach(function(secId, defIdx) {
+    if (_sbSections.indexOf(secId) === -1) {
+      // insert at default index
+      _sbSections.splice(Math.min(defIdx, _sbSections.length), 0, secId);
     }
-  } catch(e) {}
-  sbResetPrefs();
+  });
+  // Remove sections that no longer exist in SIDEBAR_DEF
+  _sbSections = _sbSections.filter(function(id){ return defSecIds.indexOf(id) !== -1; });
+  // Ensure each section has all its items
+  SIDEBAR_DEF.forEach(function(secDef) {
+    const defItems = secDef.items.map(function(i){ return i.panel; });
+    if (!_sbItems[secDef.id]) _sbItems[secDef.id] = defItems.slice();
+    else {
+      defItems.forEach(function(p){
+        if (_sbItems[secDef.id].indexOf(p) === -1) _sbItems[secDef.id].push(p);
+      });
+      // remove items no longer in def
+      _sbItems[secDef.id] = _sbItems[secDef.id].filter(function(p){ return defItems.indexOf(p) !== -1; });
+    }
+  });
+  _sbReady = true;
+  sbSavePrefs();
 }
 
 function sbResetPrefs() {
@@ -4831,6 +5064,13 @@ function sbResetLayout() {
 }
 
 // ── Render ────────────────────────────────────────────────────────
+
+// ── Sidebar collapse toggle ───────────────────────────────────────
+function toggleSidebar() {
+  document.body.classList.toggle('sidebar-hidden');
+  try { localStorage.setItem('nielsen_sidebar_hidden', document.body.classList.contains('sidebar-hidden') ? '1' : '0'); } catch(e){}
+}
+
 function renderSidebar() {
   sbLoadPrefs();
   const container = document.getElementById('sidebarSections');
@@ -4839,10 +5079,15 @@ function renderSidebar() {
   const activePanel = (document.querySelector('.panel.active') || {}).id || '';
   const activePanelName = activePanel.replace('panel-', '');
 
+  // Determine if we're in reader mode (hide Operaciones)
+  const isReader = document.body.classList.contains('visitor-mode');
+
   let html = '';
   _sbSections.forEach(function(secId) {
     const secDef = SIDEBAR_DEF.find(function(s){ return s.id === secId; });
     if (!secDef) return;
+    // Hide Operaciones section entirely in reader mode
+    if (isReader && secId === 'operaciones') return;
     const itemOrder = _sbItems[secId] || secDef.items.map(function(i){ return i.panel; });
 
     html += '<div class="sb-section" id="sbsec-' + secId + '" draggable="true"' +
@@ -4999,6 +5244,7 @@ function sbItemDrop(e, targetPanelId, targetSecId) {
 
 
 initData();
+try { if (localStorage.getItem('nielsen_sidebar_hidden') === '1') document.body.classList.add('sidebar-hidden'); } catch(e){}
 renderSidebar();
 // Try to sync from Supabase on load (if configured)
 if (typeof supabasePull === 'function' && _sbSyncEnabled) {
@@ -5668,110 +5914,127 @@ function renderCampamentos() {
 // ══════════════════════════════════════════════════════════════════
 // AGUA Y GAS
 // ══════════════════════════════════════════════════════════════════
-const AGUAGAS_DEFAULTS = [
-  { id:'ag1', nombre:'Botella Agua Mineral 1500cc',        tipo:'agua', unidad:'unidades' },
-  { id:'ag2', nombre:'Bidón Agua Tratada 20Lt (lleno)',    tipo:'agua', unidad:'bidones'  },
-  { id:'ag3', nombre:'Bidón Agua Tratada 20Lt (vacío)',    tipo:'agua', unidad:'bidones'  },
-  { id:'ag4', nombre:'Garrafa de Gas 45Kg (llena)',        tipo:'gas',  unidad:'garrafas' },
-  { id:'ag5', nombre:'Garrafa de Gas 45Kg (vacía)',        tipo:'gas',  unidad:'garrafas' },
-];
+
 
 function aguagasInit() {
   if (!state.aguagas.items.length) {
     state.aguagas.items = AGUAGAS_DEFAULTS.map(i => ({
-      ...i,
-      stock: {}   // { depId: qty }
+      id: i.id, nombre: i.nombre, tipo: i.tipo, unidad: i.unidad,
+      usaEstados: i.usaEstados,
+      estados: { enUso: 0, lleno: 0, vacio: 0 },
+      min: 5,
     }));
     save();
   }
+  // Migrate older items that used stock:{} model
+  state.aguagas.items.forEach(function(it) {
+    if (!it.estados) {
+      var prev = it.stock ? Object.values(it.stock).reduce(function(s,v){return s+v;},0) : 0;
+      it.estados = { enUso: 0, lleno: prev, vacio: 0 };
+    }
+    if (it.usaEstados === undefined) {
+      var def = AGUAGAS_DEFAULTS.find(function(d){ return d.id === it.id; });
+      it.usaEstados = def ? def.usaEstados : true;
+    }
+    if (it.min === undefined) it.min = 5;
+  });
 }
 
 function renderAguagas() {
   aguagasInit();
   const div = document.getElementById('aguagasContent');
   if (!div) return;
-
-  const deps = state.depositos || [];
   const items = state.aguagas.items || [];
 
-  // ── Totales generales ──
-  const totales = items.map(item => {
-    const total = Object.values(item.stock || {}).reduce((s, v) => s + v, 0);
-    return { ...item, total };
-  });
+  // Stats
+  const totalAgua = items.filter(i => i.tipo === 'agua')
+    .reduce((s, i) => s + agTotalItem(i), 0);
+  const totalGas  = items.filter(i => i.tipo === 'gas')
+    .reduce((s, i) => s + agTotalItem(i), 0);
+  const criticos  = items.filter(i => agStatusItem(i) === 'critic').length;
+  const bajos     = items.filter(i => agStatusItem(i) === 'low').length;
 
   let html = '';
+  html += '<div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap">' +
+    '<div class="card" style="padding:12px 18px;display:flex;align-items:center;gap:12px">' +
+      '<span style="font-size:26px">💧</span>' +
+      '<div><div style="font-family:\'Barlow Condensed\',sans-serif;font-size:30px;font-weight:700;color:var(--blue2);line-height:1">' + totalAgua + '</div>' +
+      '<span style="font-size:11px;color:var(--text2)">agua total</span></div>' +
+    '</div>' +
+    '<div class="card" style="padding:12px 18px;display:flex;align-items:center;gap:12px">' +
+      '<span style="font-size:26px">🔥</span>' +
+      '<div><div style="font-family:\'Barlow Condensed\',sans-serif;font-size:30px;font-weight:700;color:var(--accent);line-height:1">' + totalGas + '</div>' +
+      '<span style="font-size:11px;color:var(--text2)">gas total</span></div>' +
+    '</div>' +
+    (criticos ? '<div class="card" style="padding:12px 18px;display:flex;align-items:center;gap:12px;border-color:rgba(217,68,68,.4)">' +
+      '<span style="font-family:\'Barlow Condensed\',sans-serif;font-size:30px;font-weight:700;color:var(--red2)">' + criticos + '</span>' +
+      '<span style="font-size:11px;color:var(--text2)">sin stock</span></div>' : '') +
+    (bajos ? '<div class="card" style="padding:12px 18px;display:flex;align-items:center;gap:12px;border-color:rgba(212,149,42,.4)">' +
+      '<span style="font-family:\'Barlow Condensed\',sans-serif;font-size:30px;font-weight:700;color:var(--yellow2)">' + bajos + '</span>' +
+      '<span style="font-size:11px;color:var(--text2)">stock bajo</span></div>' : '') +
+  '</div>';
 
-  // Summary cards
-  html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:24px">';
-  totales.forEach(item => {
-    const icon = item.tipo === 'agua' ? '💧' : '🔥';
-    html += `<div class="card" style="padding:14px 16px">
-      <div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:6px">${icon} ${item.tipo.toUpperCase()}</div>
-      <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px">${item.nombre}</div>
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:700;color:${item.tipo==='agua'?'var(--blue2)':'var(--accent)'}">
-        ${item.total}
-      </div>
-      <div style="font-size:11px;color:var(--text3)">${item.unidad} en total</div>
-    </div>`;
+  // Main table
+  html += '<div class="card"><div style="overflow-x:auto"><table class="tbl"><thead><tr>' +
+    '<th>Artículo</th>' +
+    '<th style="text-align:center">🔵 En Uso</th>' +
+    '<th style="text-align:center">🟢 Lleno</th>' +
+    '<th style="text-align:center">⚪ Vacío</th>' +
+    '<th style="text-align:center">Total</th>' +
+    '<th style="text-align:center">Mín.</th>' +
+    '<th style="text-align:center">Estado</th>' +
+    '<th class="edit-only" style="width:50px"></th>' +
+    '</tr></thead><tbody>';
+
+  items.forEach(function(item) {
+    const e = item.estados || { enUso:0, lleno:0, vacio:0 };
+    const total = agTotalItem(item);
+    const st = agStatusItem(item);
+    const stColor = st === 'ok' ? 'var(--green2)' : st === 'low' ? 'var(--yellow2)' : 'var(--red2)';
+    const stLabel = st === 'ok' ? '✓ OK' : st === 'low' ? '⚠ Bajo' : '✗ Sin stock';
+    const tipoIcon = item.tipo === 'agua' ? '💧' : '🔥';
+
+    function cell(estado, val) {
+      return '<td style="text-align:center;white-space:nowrap">' +
+        '<button class="ag-btn edit-only" onclick="agAjustar(\'' + item.id + '\',\'' + estado + '\',-1)">−</button>' +
+        '<span style="font-family:\'Barlow Condensed\',sans-serif;font-size:20px;font-weight:700;display:inline-block;min-width:36px;text-align:center">' + val + '</span>' +
+        '<button class="ag-btn edit-only" onclick="agAjustar(\'' + item.id + '\',\'' + estado + '\',1)">+</button>' +
+        '</td>';
+    }
+
+    html += '<tr>' +
+      '<td style="font-weight:600">' + tipoIcon + ' ' + item.nombre + '</td>' +
+      cell('enUso', e.enUso || 0) +
+      cell('lleno', e.lleno || 0) +
+      cell('vacio', e.vacio || 0) +
+      '<td style="text-align:center;font-family:\'Barlow Condensed\',sans-serif;font-size:20px;font-weight:700;color:' + (item.tipo==='agua'?'var(--blue2)':'var(--accent)') + '">' + total + '</td>' +
+      '<td style="text-align:center"><input type="number" class="ag-min-input edit-only" value="' + (item.min||0) + '" min="0" ' +
+        'onchange="agSetMin(\'' + item.id + '\',this.value)" style="width:50px;text-align:center;font-size:12px;padding:3px;background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:var(--text)">' +
+        '<span class="reader-only-min" style="display:none">' + (item.min||0) + '</span></td>' +
+      '<td style="text-align:center"><span class="badge" style="background:' + stColor + '18;color:' + stColor + ';border:1px solid ' + stColor + '40">' + stLabel + '</span></td>' +
+      '<td class="edit-only"><button class="btn btn-danger btn-sm" onclick="agEliminar(\'' + item.id + '\')" title="Eliminar" style="padding:3px 8px">🗑</button></td>' +
+      '</tr>';
   });
-  html += '</div>';
 
-  // Distribution table per deposito
-  if (deps.length) {
-    html += `<div class="card">
-      <div class="section-title" style="margin-bottom:14px">Distribución por depósito</div>
-      <div style="overflow-x:auto">
-        <table class="tbl">
-          <thead><tr>
-            <th>Artículo</th>
-            ${deps.map(d => `<th style="text-align:center">${d.nombre}</th>`).join('')}
-            <th style="text-align:center">Total</th>
-            <th class="edit-only"></th>
-          </tr></thead>
-          <tbody>`;
-    items.forEach(item => {
-      const total = Object.values(item.stock || {}).reduce((s, v) => s + v, 0);
-      html += `<tr>
-        <td>${item.nombre}</td>
-        ${deps.map(d => `<td style="text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:600">
-          ${item.stock[d.id] || 0}
-        </td>`).join('')}
-        <td style="text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;color:${item.tipo==='agua'?'var(--blue2)':'var(--accent)'}">
-          ${total}
-        </td>
-        <td class="edit-only">
-          <button class="btn btn-secondary btn-sm" onclick="aguagasEditar('${item.id}')">± Stock</button>
-        </td>
-      </tr>`;
-    });
-    html += `</tbody></table></div></div>`;
-  }
+  html += '</tbody></table></div></div>';
 
   // Historial
-  const movs = [...(state.aguagas.movimientos || [])].reverse().slice(0, 20);
+  const movs = (state.aguagas.movimientos || []).slice().reverse().slice(0, 20);
   if (movs.length) {
-    html += `<div class="card" style="margin-top:16px">
-      <div class="section-title" style="margin-bottom:12px">Últimos movimientos</div>
-      <table class="tbl"><thead><tr>
-        <th>Fecha</th><th>Artículo</th><th>Depósito</th><th>Tipo</th><th>Cantidad</th><th>Operador</th>
-      </tr></thead><tbody>`;
-    movs.forEach(m => {
-      const item = items.find(i => i.id === m.itemId);
-      const dep  = deps.find(d => d.id === m.depId);
-      const tipoBadge = m.tipo === 'entrada'
-        ? '<span class="badge badge-green">Entrada</span>'
-        : m.tipo === 'salida'
-        ? '<span class="badge badge-red">Salida</span>'
-        : '<span class="badge badge-gray">Traspaso</span>';
-      html += `<tr>
-        <td style="font-size:11px;color:var(--text2)">${m.fecha}</td>
-        <td>${item ? item.nombre : '—'}</td>
-        <td>${dep ? dep.nombre : '—'}</td>
-        <td>${tipoBadge}</td>
-        <td style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:600">${m.cantidad}</td>
-        <td style="font-size:11px;color:var(--text3)">${m.operador || '—'}</td>
-      </tr>`;
+    html += '<div class="card" style="margin-top:16px">' +
+      '<div class="section-title" style="margin-bottom:12px">Últimos movimientos</div>' +
+      '<table class="tbl"><thead><tr><th>Fecha</th><th>Artículo</th><th>Estado</th><th>Cambio</th></tr></thead><tbody>';
+    movs.forEach(function(m) {
+      const item = items.find(function(i){ return i.id === m.itemId; });
+      const estLabel = { enUso:'En Uso', lleno:'Lleno', vacio:'Vacío' }[m.estado] || m.estado || '—';
+      const signo = m.delta > 0 ? '+' : '';
+      const color = m.delta > 0 ? 'var(--green2)' : 'var(--red2)';
+      html += '<tr>' +
+        '<td style="font-size:11px;color:var(--text2)">' + m.fecha + '</td>' +
+        '<td>' + (item ? item.nombre : '—') + '</td>' +
+        '<td><span class="badge badge-gray">' + estLabel + '</span></td>' +
+        '<td style="font-family:\'Barlow Condensed\',sans-serif;font-size:16px;font-weight:700;color:' + color + '">' + signo + m.delta + '</td>' +
+        '</tr>';
     });
     html += '</tbody></table></div>';
   }
@@ -5779,97 +6042,113 @@ function renderAguagas() {
   div.innerHTML = html;
 }
 
-function aguagasEditar(itemId) {
-  const item = state.aguagas.items.find(i => i.id === itemId);
+// Total of an item across its estados
+function agTotalItem(item) {
+  const e = item.estados || {};
+  return (e.enUso || 0) + (e.lleno || 0) + (e.vacio || 0);
+}
+
+// Status based on total vs min
+function agStatusItem(item) {
+  const total = agTotalItem(item);
+  if (total <= 0) return 'critic';
+  if (total <= (item.min || 0)) return 'low';
+  return 'ok';
+}
+
+// Adjust a specific estado by delta (+1 / -1)
+function agAjustar(itemId, estado, delta) {
+  const item = state.aguagas.items.find(function(i){ return i.id === itemId; });
   if (!item) return;
-  const deps = state.depositos || [];
-  if (!deps.length) { toast('No hay depósitos configurados', 'error'); return; }
+  if (!item.estados) item.estados = { enUso:0, lleno:0, vacio:0 };
+  const cur = item.estados[estado] || 0;
+  const next = Math.max(0, cur + delta);
+  if (next === cur) return;
+  item.estados[estado] = next;
+  state.aguagas.movimientos.push({
+    id: genId(), fecha: now(), itemId: itemId, estado: estado, delta: delta,
+  });
+  save();
+  renderAguagas();
+}
 
-  let rows = deps.map(d => `
-    <tr>
-      <td>${d.nombre}</td>
-      <td><input type="number" class="form-control" id="ag_${itemId}_${d.id}"
-           value="${item.stock[d.id] || 0}" min="0" style="width:80px;text-align:center"></td>
-    </tr>`).join('');
+function agSetMin(itemId, val) {
+  const item = state.aguagas.items.find(function(i){ return i.id === itemId; });
+  if (!item) return;
+  item.min = Math.max(0, parseInt(val) || 0);
+  save();
+  renderAguagas();
+}
 
-  const modal = `
-    <div class="modal-overlay open" id="modalAguagas">
-      <div class="modal">
-        <div class="modal-header">${item.nombre} — Stock por depósito
-          <button class="close-btn" onclick="closeModal('modalAguagas')">✕</button>
-        </div>
-        <div class="modal-body">
-          <table class="tbl"><thead><tr><th>Depósito</th><th style="text-align:center">Cantidad</th></tr></thead>
-          <tbody>${rows}</tbody></table>
-          <div class="form-group" style="margin-top:14px">
-            <label class="form-label">Operador</label>
-            <input type="text" class="form-control" id="ag_operador" placeholder="Tu nombre">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Observaciones</label>
-            <input type="text" class="form-control" id="ag_obs" placeholder="Opcional">
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-secondary" onclick="closeModal('modalAguagas')">Cancelar</button>
-          <button class="btn btn-primary" onclick="aguagasGuardar('${itemId}')">Guardar</button>
-        </div>
-      </div>
-    </div>`;
+function agEliminar(itemId) {
+  const item = state.aguagas.items.find(function(i){ return i.id === itemId; });
+  if (!item || !confirm('¿Eliminar "' + item.nombre + '"?')) return;
+  state.aguagas.items = state.aguagas.items.filter(function(i){ return i.id !== itemId; });
+  save();
+  renderAguagas();
+  toast('Eliminado', 'info');
+}
 
-  // Remove existing if any
-  const ex = document.getElementById('modalAguagas');
+function aguagasAbrirMovimiento() {
+  // Add new article modal
+  const modal = '<div class="modal-overlay open" id="modalAgNuevo">' +
+    '<div class="modal" style="max-width:420px">' +
+      '<div class="modal-header">Nuevo Artículo de Agua/Gas<button class="close-btn" onclick="closeModal(\'modalAgNuevo\')">✕</button></div>' +
+      '<div class="modal-body">' +
+        '<div class="form-group"><label class="form-label">Nombre *</label>' +
+          '<input type="text" class="form-control" id="agNuevoNombre" placeholder="Ej: Botella Agua 500cc"></div>' +
+        '<div class="form-row">' +
+          '<div class="form-group"><label class="form-label">Tipo</label>' +
+            '<select class="form-control" id="agNuevoTipo">' +
+              '<option value="agua">💧 Agua</option><option value="gas">🔥 Gas</option></select></div>' +
+          '<div class="form-group"><label class="form-label">Unidad</label>' +
+            '<input type="text" class="form-control" id="agNuevoUnidad" value="unidades"></div>' +
+        '</div>' +
+        '<div class="form-group"><label class="form-label">Stock mínimo (alerta)</label>' +
+          '<input type="number" class="form-control" id="agNuevoMin" value="5" min="0"></div>' +
+      '</div>' +
+      '<div class="modal-footer">' +
+        '<button class="btn btn-secondary" onclick="closeModal(\'modalAgNuevo\')">Cancelar</button>' +
+        '<button class="btn btn-primary" onclick="agGuardarNuevo()">Agregar</button>' +
+      '</div>' +
+    '</div></div>';
+  const ex = document.getElementById('modalAgNuevo');
   if (ex) ex.remove();
   document.body.insertAdjacentHTML('beforeend', modal);
 }
 
-function aguagasGuardar(itemId) {
-  const item = state.aguagas.items.find(i => i.id === itemId);
-  if (!item) return;
-  const deps = state.depositos || [];
-  const operador = document.getElementById('ag_operador')?.value || '';
-  const obs      = document.getElementById('ag_obs')?.value || '';
-
-  deps.forEach(d => {
-    const el = document.getElementById(`ag_${itemId}_${d.id}`);
-    if (!el) return;
-    const newQty = parseInt(el.value) || 0;
-    const oldQty = item.stock[d.id] || 0;
-    if (newQty !== oldQty) {
-      state.aguagas.movimientos.push({
-        id: genId(), fecha: now(), itemId, depId: d.id,
-        tipo: newQty > oldQty ? 'entrada' : 'salida',
-        cantidad: Math.abs(newQty - oldQty), operador, obs
-      });
-    }
-    item.stock[d.id] = newQty;
+function agGuardarNuevo() {
+  const nombre = toTitleCase((document.getElementById('agNuevoNombre').value || '').trim());
+  if (!nombre) { toast('Ingresá el nombre', 'error'); return; }
+  state.aguagas.items.push({
+    id: genId(), nombre: nombre,
+    tipo: document.getElementById('agNuevoTipo').value,
+    unidad: (document.getElementById('agNuevoUnidad').value || 'unidades').trim(),
+    usaEstados: true,
+    estados: { enUso:0, lleno:0, vacio:0 },
+    min: parseInt(document.getElementById('agNuevoMin').value) || 0,
   });
-
   save();
-  closeModal('modalAguagas');
+  closeModal('modalAgNuevo');
   renderAguagas();
-  toast('Stock actualizado', 'success');
-}
-
-function aguagasAbrirMovimiento() {
-  aguagasEditar(state.aguagas.items[0]?.id);
+  toast('Artículo agregado', 'success');
 }
 
 // ══════════════════════════════════════════════════════════════════
 // ROPA DE CAMA
 // ══════════════════════════════════════════════════════════════════
 const ROPACAMA_DEFAULTS = [
-  'Sábana lisa (limpia)',
-  'Sábana ajustable (limpia)',
-  'Funda de almohada (limpia)',
-  'Frazada polar (limpia)',
-  'Frazada de lana (limpia)',
-  'Almohada (limpia)',
-  'Cubre cama jean (limpio)',
-  'Cubre cama blanco (limpio)',
-  'Pie de cama (limpio)',
-  'Toalla (limpia)',
-  'Toallón (limpio)',
+  'Sábana Lisa',
+  'Sábana Ajustable',
+  'Funda de Almohada',
+  'Frazada Polar',
+  'Frazada de Lana',
+  'Almohada',
+  'Cubre Cama Jean',
+  'Cubre Cama Blanco',
+  'Pie de Cama',
+  'Toalla',
+  'Toallón',
 ];
 
 function ropacamaInit() {
@@ -5877,11 +6156,18 @@ function ropacamaInit() {
     state.ropacama.items = ROPACAMA_DEFAULTS.map((nombre, i) => ({
       id: 'rc' + (i+1),
       nombre,
-      stock: 0,
+      estados: { limpio: 0, sucio: 0, descarte: 0 },
       min: 5,
     }));
     save();
   }
+  // Migrate older items that used flat stock
+  state.ropacama.items.forEach(function(it) {
+    if (!it.estados) {
+      it.estados = { limpio: it.stock || 0, sucio: 0, descarte: 0 };
+    }
+    if (it.min === undefined) it.min = 5;
+  });
 }
 
 function renderRopacama() {
@@ -5890,139 +6176,119 @@ function renderRopacama() {
   if (!div) return;
   const items = state.ropacama.items || [];
 
-  const criticos = items.filter(i => i.stock <= 0).length;
-  const bajos    = items.filter(i => i.stock > 0 && i.stock <= i.min).length;
+  const criticos = items.filter(i => rcStatus(i) === 'critic').length;
+  const bajos    = items.filter(i => rcStatus(i) === 'low').length;
 
   let html = '';
+  html += '<div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap">' +
+    '<div class="card" style="padding:12px 18px;display:flex;align-items:center;gap:12px">' +
+      '<span style="font-family:\'Barlow Condensed\',sans-serif;font-size:30px;font-weight:700;color:var(--accent)">' + items.length + '</span>' +
+      '<span style="font-size:12px;color:var(--text2)">artículos</span></div>' +
+    (criticos ? '<div class="card" style="padding:12px 18px;display:flex;align-items:center;gap:12px;border-color:rgba(217,68,68,.4)">' +
+      '<span style="font-family:\'Barlow Condensed\',sans-serif;font-size:30px;font-weight:700;color:var(--red2)">' + criticos + '</span>' +
+      '<span style="font-size:12px;color:var(--text2)">sin stock</span></div>' : '') +
+    (bajos ? '<div class="card" style="padding:12px 18px;display:flex;align-items:center;gap:12px;border-color:rgba(212,149,42,.4)">' +
+      '<span style="font-family:\'Barlow Condensed\',sans-serif;font-size:30px;font-weight:700;color:var(--yellow2)">' + bajos + '</span>' +
+      '<span style="font-size:12px;color:var(--text2)">stock bajo</span></div>' : '') +
+  '</div>';
 
-  // Stats bar
-  html += `<div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap">
-    <div class="card" style="padding:12px 18px;display:flex;align-items:center;gap:12px">
-      <span style="font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:700;color:var(--accent)">${items.length}</span>
-      <span style="font-size:12px;color:var(--text2)">artículos<br>registrados</span>
-    </div>
-    ${criticos ? `<div class="card" style="padding:12px 18px;display:flex;align-items:center;gap:12px;border-color:rgba(217,68,68,.4)">
-      <span style="font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:700;color:var(--red2)">${criticos}</span>
-      <span style="font-size:12px;color:var(--text2)">sin stock</span>
-    </div>` : ''}
-    ${bajos ? `<div class="card" style="padding:12px 18px;display:flex;align-items:center;gap:12px;border-color:rgba(212,149,42,.4)">
-      <span style="font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:700;color:var(--yellow2)">${bajos}</span>
-      <span style="font-size:12px;color:var(--text2)">stock bajo</span>
-    </div>` : ''}
-  </div>`;
+  html += '<div class="card"><div style="overflow-x:auto"><table class="tbl"><thead><tr>' +
+    '<th>Artículo</th>' +
+    '<th style="text-align:center">🟢 Limpio</th>' +
+    '<th style="text-align:center">🟡 Sucio</th>' +
+    '<th style="text-align:center">🔴 Descarte</th>' +
+    '<th style="text-align:center">Total</th>' +
+    '<th style="text-align:center">Mín.</th>' +
+    '<th style="text-align:center">Estado</th>' +
+    '<th class="edit-only" style="width:50px"></th>' +
+    '</tr></thead><tbody>';
 
-  // Items table
-  html += `<div class="card">
-    <table class="tbl">
-      <thead><tr>
-        <th>Artículo</th>
-        <th style="text-align:center">Stock</th>
-        <th style="text-align:center">Mínimo</th>
-        <th style="text-align:center">Estado</th>
-        <th class="edit-only"></th>
-      </tr></thead>
-      <tbody>`;
-
-  items.forEach(item => {
-    const st = item.stock <= 0 ? 'critic' : item.stock <= item.min ? 'low' : 'ok';
+  items.forEach(function(item) {
+    const e = item.estados || { limpio:0, sucio:0, descarte:0 };
+    const total = rcTotal(item);
+    const st = rcStatus(item);
     const stColor = st === 'ok' ? 'var(--green2)' : st === 'low' ? 'var(--yellow2)' : 'var(--red2)';
     const stLabel = st === 'ok' ? '✓ OK' : st === 'low' ? '⚠ Bajo' : '✗ Sin stock';
-    html += `<tr>
-      <td style="font-weight:600">${item.nombre}</td>
-      <td style="text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;color:${stColor}">
-        ${item.stock}
-      </td>
-      <td style="text-align:center;font-size:13px;color:var(--text2)">${item.min}</td>
-      <td style="text-align:center">
-        <span class="badge" style="background:${st==='ok'?'rgba(61,158,78,.12)':st==='low'?'rgba(212,149,42,.12)':'rgba(217,68,68,.12)'};
-             color:${stColor};border:1px solid ${stColor}40">${stLabel}</span>
-      </td>
-      <td class="edit-only">
-        <div class="tbl-actions">
-          <button class="btn btn-secondary btn-sm" onclick="ropacamaEditarItem('${item.id}')">± Stock</button>
-          <button class="btn btn-danger btn-sm" onclick="ropacamaEliminar('${item.id}')">🗑</button>
-        </div>
-      </td>
-    </tr>`;
+
+    function cell(estado, val) {
+      return '<td style="text-align:center;white-space:nowrap">' +
+        '<button class="ag-btn edit-only" onclick="rcAjustar(\'' + item.id + '\',\'' + estado + '\',-1)">−</button>' +
+        '<span style="font-family:\'Barlow Condensed\',sans-serif;font-size:20px;font-weight:700;display:inline-block;min-width:36px;text-align:center">' + val + '</span>' +
+        '<button class="ag-btn edit-only" onclick="rcAjustar(\'' + item.id + '\',\'' + estado + '\',1)">+</button>' +
+        '</td>';
+    }
+
+    html += '<tr>' +
+      '<td style="font-weight:600">' + item.nombre + '</td>' +
+      cell('limpio', e.limpio || 0) +
+      cell('sucio', e.sucio || 0) +
+      cell('descarte', e.descarte || 0) +
+      '<td style="text-align:center;font-family:\'Barlow Condensed\',sans-serif;font-size:20px;font-weight:700;color:var(--accent)">' + total + '</td>' +
+      '<td style="text-align:center"><input type="number" class="ag-min-input edit-only" value="' + (item.min||0) + '" min="0" ' +
+        'onchange="rcSetMin(\'' + item.id + '\',this.value)" style="width:50px;text-align:center;font-size:12px;padding:3px;background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:var(--text)"></td>' +
+      '<td style="text-align:center"><span class="badge" style="background:' + stColor + '18;color:' + stColor + ';border:1px solid ' + stColor + '40">' + stLabel + '</span></td>' +
+      '<td class="edit-only"><button class="btn btn-danger btn-sm" onclick="ropacamaEliminar(\'' + item.id + '\')" title="Eliminar" style="padding:3px 8px">🗑</button></td>' +
+      '</tr>';
   });
 
-  html += '</tbody></table></div>';
+  html += '</tbody></table></div></div>';
   div.innerHTML = html;
+}
+
+// ── Ropa de cama helpers ──
+function rcTotal(item) {
+  const e = item.estados || {};
+  return (e.limpio || 0) + (e.sucio || 0) + (e.descarte || 0);
+}
+function rcStatus(item) {
+  // Status based on LIMPIO stock (usable) vs min
+  const limpio = (item.estados && item.estados.limpio) || 0;
+  if (limpio <= 0) return 'critic';
+  if (limpio <= (item.min || 0)) return 'low';
+  return 'ok';
+}
+function rcAjustar(itemId, estado, delta) {
+  const item = state.ropacama.items.find(function(i){ return i.id === itemId; });
+  if (!item) return;
+  if (!item.estados) item.estados = { limpio:0, sucio:0, descarte:0 };
+  const cur = item.estados[estado] || 0;
+  const next = Math.max(0, cur + delta);
+  if (next === cur) return;
+  item.estados[estado] = next;
+  save();
+  renderRopacama();
+}
+function rcSetMin(itemId, val) {
+  const item = state.ropacama.items.find(function(i){ return i.id === itemId; });
+  if (!item) return;
+  item.min = Math.max(0, parseInt(val) || 0);
+  save();
+  renderRopacama();
 }
 
 function ropacamaAgregarItem() {
   const nombre = prompt('Nombre del artículo de ropa de cama:');
   if (!nombre || !nombre.trim()) return;
   state.ropacama.items.push({
-    id: genId(), nombre: nombre.trim(), stock: 0, min: 5
+    id: genId(), nombre: toTitleCase(nombre.trim()),
+    estados: { limpio: 0, sucio: 0, descarte: 0 }, min: 5
   });
   save();
   renderRopacama();
   toast('Artículo agregado', 'success');
 }
 
-function ropacamaEditarItem(itemId) {
-  const item = state.ropacama.items.find(i => i.id === itemId);
-  if (!item) return;
-
-  const modal = `
-    <div class="modal-overlay open" id="modalRopacama">
-      <div class="modal">
-        <div class="modal-header">${item.nombre}
-          <button class="close-btn" onclick="closeModal('modalRopacama')">✕</button>
-        </div>
-        <div class="modal-body">
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">Stock actual</label>
-              <input type="number" class="form-control" id="rc_stock" value="${item.stock}" min="0">
-            </div>
-            <div class="form-group">
-              <label class="form-label">Stock mínimo</label>
-              <input type="number" class="form-control" id="rc_min" value="${item.min}" min="0">
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Observaciones</label>
-            <input type="text" class="form-control" id="rc_obs" placeholder="Opcional">
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-secondary" onclick="closeModal('modalRopacama')">Cancelar</button>
-          <button class="btn btn-primary" onclick="ropacamaGuardar('${itemId}')">Guardar</button>
-        </div>
-      </div>
-    </div>`;
-
-  const ex = document.getElementById('modalRopacama');
-  if (ex) ex.remove();
-  document.body.insertAdjacentHTML('beforeend', modal);
-}
-
-function ropacamaGuardar(itemId) {
-  const item = state.ropacama.items.find(i => i.id === itemId);
-  if (!item) return;
-  const newStock = parseInt(document.getElementById('rc_stock')?.value) || 0;
-  const newMin   = parseInt(document.getElementById('rc_min')?.value) || 0;
-  item.stock = newStock;
-  item.min   = newMin;
-  save();
-  closeModal('modalRopacama');
-  renderRopacama();
-  toast('Actualizado', 'success');
-}
-
 function ropacamaEliminar(itemId) {
-  const item = state.ropacama.items.find(i => i.id === itemId);
+  const item = state.ropacama.items.find(function(i){ return i.id === itemId; });
   if (!item || !confirm('¿Eliminar "' + item.nombre + '"?')) return;
-  state.ropacama.items = state.ropacama.items.filter(i => i.id !== itemId);
+  state.ropacama.items = state.ropacama.items.filter(function(i){ return i.id !== itemId; });
   save();
   renderRopacama();
   toast('Eliminado', 'info');
 }
 
 function ropacamaAbrirMovimiento() {
-  ropacamaEditarItem(state.ropacama.items[0]?.id);
+  ropacamaAgregarItem();
 }
 
 
@@ -7413,6 +7679,7 @@ function ropaStockTotal(prenda) {
 }
 
 // ── Tab navigation ────────────────────────────────────────────────
+var _ropaGrupo = 'indumentaria';  // 'indumentaria' | 'epp'
 let _ropaActiveTab = 'stock';
 const MQ_TABS = ['stock','maniqui','personal','entregas','alertas'];
 function ropaTab(tab) {
@@ -7431,9 +7698,26 @@ function ropaTab(tab) {
   if (tab === 'alertas')  ropaRenderAlertas();
 }
 
+function showRopaPanel() {
+  // Update title/subtitle based on group
+  var title = document.getElementById('ropaPanelTitle');
+  var sub   = document.getElementById('ropaPanelSub');
+  var btnPrenda = document.getElementById('ropaBtnAddPrenda');
+  if (_ropaGrupo === 'epp') {
+    if (title) title.textContent = 'EPP — Elementos de Protección Personal';
+    if (sub)   sub.textContent = 'Stock de EPP por talla · Entregas registradas por persona';
+    if (btnPrenda) btnPrenda.textContent = '+ EPP';
+  } else {
+    if (title) title.textContent = 'Indumentaria Laboral';
+    if (sub)   sub.textContent = 'Stock por prenda y talla · Historial de entregas por persona';
+    if (btnPrenda) btnPrenda.textContent = '+ Prenda';
+  }
+  renderRopaPanel();
+}
+
 function renderRopaPanel() {
   // populate category filter
-  const cats = [...new Set((state.ropa.prendas || []).map(p => p.categoria).filter(Boolean))];
+  const cats = [...new Set((state.ropa.prendas || []).filter(p => (p.grupo||'indumentaria')===_ropaGrupo).map(p => p.categoria).filter(Boolean))];
   const catSel = document.getElementById('ropaCatFilter');
   if (catSel) {
     const cur = catSel.value;
@@ -7472,7 +7756,7 @@ function ropaRenderStock() {
   const grid = document.getElementById('ropaStockGrid');
   if (!grid) return;
 
-  let prendas = state.ropa.prendas || [];
+  let prendas = (state.ropa.prendas || []).filter(p => (p.grupo || 'indumentaria') === _ropaGrupo);
   if (q)    prendas = prendas.filter(p => p.nombre.toLowerCase().includes(q) || (p.categoria||'').toLowerCase().includes(q));
   if (catF) prendas = prendas.filter(p => p.categoria === catF);
 
@@ -7660,7 +7944,7 @@ function ropaRenderAlertas() {
   const criticas = [];
   const bajas    = [];
 
-  (state.ropa.prendas || []).forEach(p => {
+  (state.ropa.prendas || []).filter(p => (p.grupo||'indumentaria')===_ropaGrupo).forEach(p => {
     Object.entries(p.tallas || {}).forEach(([talla, td]) => {
       const st = ropaTallaStatus(p.tallas, talla);
       if (st === 'critic') criticas.push({ prenda: p, talla, stock: td.stock, min: td.min });
@@ -7816,8 +8100,8 @@ function guardarPrenda() {
     if (idx !== -1) state.ropa.prendas[idx] = { ...state.ropa.prendas[idx], ...data };
     toast('Prenda actualizada', 'success');
   } else {
-    state.ropa.prendas.push({ id: genId(), ...data });
-    toast('Prenda creada', 'success');
+    state.ropa.prendas.push({ id: genId(), grupo: _ropaGrupo, ...data });
+    toast(_ropaGrupo === 'epp' ? 'EPP creado' : 'Prenda creada', 'success');
   }
   ropaSave(); closeModal('modalPrenda'); renderRopaPanel();
 }
@@ -9807,8 +10091,9 @@ function mqUpdateHeader(zonaFiltro) {
 
   /* Edit controls hidden in visitor mode */
   body.visitor-mode .edit-only { display:none !important; }
-  body.visitor-mode .btn-primary { pointer-events:none !important; opacity:.4 !important; }
-  body.visitor-mode .btn-danger  { pointer-events:none !important; opacity:.4 !important; }
+  /* In reader mode hide all primary/danger action buttons that slipped through */
+  body.visitor-mode .btn-primary:not(.reader-ok),
+  body.visitor-mode .btn-danger:not(.reader-ok) { display:none !important; }
   body.visitor-mode input[type="text"],
   body.visitor-mode input[type="number"],
   body.visitor-mode select,
@@ -9936,6 +10221,28 @@ function mqUpdateHeader(zonaFiltro) {
   .dep-filtro-btn.activo {
     background:rgba(224,92,26,.15);border-color:var(--accent);color:var(--accent);
   }
+
+
+  /* ── Sidebar collapse ── */
+  body.sidebar-hidden .sidebar { 
+    margin-left: -240px;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .sidebar {
+    transition: margin-left .25s ease, opacity .2s ease;
+  }
+
+
+  /* ── Agua y Gas / Ropa Cama +/- buttons ── */
+  .ag-btn {
+    width:24px;height:24px;border-radius:6px;border:1px solid var(--border);
+    background:var(--bg3);color:var(--accent);font-size:16px;font-weight:700;
+    cursor:pointer;line-height:1;vertical-align:middle;margin:0 4px;
+    transition:all .12s;font-family:inherit;
+  }
+  .ag-btn:hover { background:var(--accent);color:#000;border-color:var(--accent); }
+  .ag-min-input:focus { outline:1px solid var(--accent); }
 
 </style>
 
