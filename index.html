@@ -1561,7 +1561,7 @@
   .ing-name-inp {
     background:var(--bg3); border:1px solid var(--border); border-radius:5px;
     padding:5px 8px; color:var(--text); font-size:12px; font-family:'Barlow',sans-serif;
-    width:100%; text-transform:uppercase;
+    width:100%;
   }
   .ing-name-inp:focus { outline:none; border-color:var(--accent); }
   .ing-qty-inp {
@@ -2180,7 +2180,7 @@ function toTitleCase(str) {
   if (!str) return str;
   const SKIP = new Set(['de','del','la','el','los','las','un','una','y','e','o','u',
                         'en','con','sin','por','para','al','a','s.a.','sa','s.r.l.']);
-  return str.toLowerCase().replace(/\w+/g, function(word, offset) {
+  return str.toLowerCase().replace(/\b\w+/g, function(word, offset) {
     if (offset > 0 && SKIP.has(word)) return word;
     return word.charAt(0).toUpperCase() + word.slice(1);
   });
@@ -2969,7 +2969,8 @@ function renderDepositos() {
   // Apply active filter — show only matching grupo or all
   const filtro = (typeof _depFiltroActivo !== 'undefined') ? _depFiltroActivo : '';
 
-  let allDeps = state.depositos || [];
+  // Exclude sub-depositos (they appear inside their parent's detail view)
+  let allDeps = (state.depositos || []).filter(function(d) { return !d.parentId; });
   // If filter active, pre-filter deposits
   if (filtro) {
     allDeps = allDeps.filter(function(d) { return d.tipo === filtro; });
@@ -3147,48 +3148,365 @@ function depCardHTML(d, mini) {
   </div>`;
 }
 
+var _detallDepId = null;
+
 function verDetalleDeposito(depId) {
+  _detallDepId = depId;
+  renderDetalleDeposito();
+  openModal('modalDetalleDeposito');
+}
+
+function renderDetalleDeposito() {
+  const depId = _detallDepId;
   const d = state.depositos.find(x => x.id === depId);
   if (!d) return;
-  const arts = state.articulos.filter(a => (a.stock[d.id] || 0) > 0);
   const ico = depIcono(d.tipo);
   const tipoLabel = ({'almacen':'Almacén/General','campamento':'Campamento Móvil','vehiculo':'Vehículo/Flota','oficina':'Oficina','deposito-sj':'Depósito Base SJ','deposito-labrea':'Depósito Camp. La Brea'}[d.tipo] || d.tipo);
+  const esSubdep = !!d.parentId;
 
-  document.getElementById('detalleDepHeader').innerHTML = `${ico} ${d.nombre} <button class="close-btn" onclick="closeModal('modalDetalleDeposito')">✕</button>`;
+  document.getElementById('detalleDepHeader').innerHTML = ico + ' ' + d.nombre + ' <button class="close-btn" onclick="closeModal(\'modalDetalleDeposito\')">✕</button>';
 
-  let body = `<div class="flex gap-3" style="margin-bottom:16px;flex-wrap:wrap">
-    <span class="badge badge-blue">${tipoLabel}</span>
-    <span class="badge badge-gray">${d.ubicacion || 'Sin ubicación'}</span>
-    ${d.responsable ? `<span class="badge badge-gray">👤 ${d.responsable}</span>` : ''}
-  </div>`;
+  // Sub-depósitos de este depósito
+  const subdeps = state.depositos.filter(x => x.parentId === depId);
 
-  if (d.descripcion) body += `<p style="color:var(--text2);font-size:13px;margin-bottom:16px">${d.descripcion}</p>`;
+  let body = '<div class="flex gap-3" style="margin-bottom:16px;flex-wrap:wrap">' +
+    '<span class="badge badge-blue">' + tipoLabel + '</span>' +
+    (esSubdep ? '<span class="badge" style="background:rgba(224,92,26,.15);color:var(--accent)">📁 Sub-depósito</span>' : '') +
+    '<span class="badge badge-gray">' + (d.ubicacion || 'Sin ubicación') + '</span>' +
+    (d.responsable ? '<span class="badge badge-gray">👤 ' + d.responsable + '</span>' : '') +
+    '</div>';
+
+  if (d.descripcion) body += '<p style="color:var(--text2);font-size:13px;margin-bottom:16px">' + d.descripcion + '</p>';
+
+  // ── Botones de acción ──
+  body += '<div class="edit-only" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid var(--border)">';
+  if (!esSubdep) {
+    body += '<button class="btn btn-secondary btn-sm" onclick="agregarSubDeposito(\'' + depId + '\')">📁 Agregar Sub-depósito</button>';
+  }
+  body += '<button class="btn btn-primary btn-sm" onclick="depAgregarArticulo(\'' + depId + '\')">➕ Agregar Artículo</button>' +
+    '<button class="btn btn-secondary btn-sm" onclick="depEliminarArticulo(\'' + depId + '\')">➖ Eliminar Artículo</button>' +
+    '<button class="btn btn-secondary btn-sm" onclick="depCargaMasiva(\'' + depId + '\')">📋 Carga Masiva</button>' +
+    '</div>';
+
+  // ── Sub-depósitos (cards) ──
+  if (subdeps.length) {
+    body += '<div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:10px">📁 Sub-depósitos (' + subdeps.length + ')</div>';
+    body += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin-bottom:22px">';
+    subdeps.forEach(sub => {
+      const subArts = state.articulos.filter(a => (a.stock[sub.id] || 0) > 0);
+      const totalUnidades = subArts.reduce((s, a) => s + (a.stock[sub.id] || 0), 0);
+      body += '<div onclick="verDetalleDeposito(\'' + sub.id + '\')" style="cursor:pointer;background:var(--bg3);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:8px;padding:12px 14px;transition:all .15s" onmouseover="this.style.borderColor=\'var(--accent)\'" onmouseout="this.style.borderColor=\'var(--border)\';this.style.borderLeftColor=\'var(--accent)\'">' +
+        '<div style="font-weight:700;font-size:14px;margin-bottom:4px">📁 ' + sub.nombre + '</div>' +
+        '<div style="font-size:11px;color:var(--text3)">' + subArts.length + ' artículos · ' + totalUnidades + ' unidades</div>' +
+        '</div>';
+    });
+    body += '</div>';
+  }
+
+  // ── Stock del depósito ──
+  const arts = state.articulos.filter(a => (a.stock[depId] || 0) > 0);
+  body += '<div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:10px">📦 Stock directo (' + arts.length + ')</div>';
 
   if (!arts.length) {
     body += '<div class="empty-state"><div class="empty-icon">📦</div><p>Sin artículos en este depósito</p></div>';
   } else {
-    body += `<table class="tbl"><thead><tr><th>Artículo</th><th>Categoría</th><th>Cant.</th><th>Estado</th></tr></thead><tbody>`;
+    body += '<table class="tbl"><thead><tr><th>Artículo</th><th>Categoría</th><th>Cant.</th><th>Estado</th></tr></thead><tbody>';
     arts.forEach(a => {
       const [cls, lbl] = getStockLabel(a);
-      const qty = a.stock[d.id] || 0;
+      const qty = a.stock[depId] || 0;
       const pct = Math.min(100, Math.round((qty / (a.max || 1)) * 100));
       const st = getStockStatus(a);
-      body += `<tr>
-        <td><strong>${a.nombre}</strong></td>
-        <td><span class="badge badge-gray">${a.categoria || '—'}</span></td>
-        <td>
-          <span style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700">${qty}</span>
-          <span style="color:var(--text3);font-size:12px"> ${a.unidad || ''}</span>
-          <div class="prog-bar"><div class="prog-fill ${st}" style="width:${pct}%"></div></div>
-        </td>
-        <td><span class="badge ${cls}">${lbl}</span></td>
-      </tr>`;
+      body += '<tr>' +
+        '<td><strong>' + a.nombre + '</strong></td>' +
+        '<td><span class="badge badge-gray">' + (a.categoria || '—') + '</span></td>' +
+        '<td><span style="font-family:\'Barlow Condensed\',sans-serif;font-size:18px;font-weight:700">' + qty + '</span>' +
+        '<span style="color:var(--text3);font-size:12px"> ' + (a.unidad || '') + '</span>' +
+        '<div class="prog-bar"><div class="prog-fill ' + st + '" style="width:' + pct + '%"></div></div></td>' +
+        '<td><span class="badge ' + cls + '">' + lbl + '</span></td>' +
+        '</tr>';
     });
     body += '</tbody></table>';
   }
 
   document.getElementById('detalleDepBody').innerHTML = body;
-  openModal('modalDetalleDeposito');
+}
+
+
+
+// ══════════════════════════════════════════════════════════════════
+// SUB-DEPÓSITOS Y CARGA DE ARTÍCULOS DESDE EL DETALLE DE DEPÓSITO
+// ══════════════════════════════════════════════════════════════════
+
+function agregarSubDeposito(parentId) {
+  const parent = state.depositos.find(x => x.id === parentId);
+  if (!parent) return;
+  const nombre = prompt('Nombre del sub-depósito (estante, rack, zona, etc.):');
+  if (!nombre || !nombre.trim()) return;
+  const nuevo = {
+    id: genId(),
+    nombre: toTitleCase(nombre.trim()),
+    tipo: parent.tipo,
+    ubicacion: parent.nombre,
+    descripcion: '',
+    responsable: parent.responsable || '',
+    parentId: parentId,
+  };
+  state.depositos.push(nuevo);
+  save();
+  renderDetalleDeposito();
+  renderDepositos();
+  toast('Sub-depósito creado', 'success');
+}
+
+// ── Agregar artículo a un depósito (crea/actualiza en state.articulos) ──
+function depAgregarArticulo(depId) {
+  const dep = state.depositos.find(x => x.id === depId);
+  if (!dep) return;
+  // Modal dinámico
+  const existentes = state.articulos
+    .slice().sort((a,b) => a.nombre.localeCompare(b.nombre,'es'))
+    .map(a => '<option value="' + a.id + '">' + a.nombre + '</option>').join('');
+
+  const modal = '<div class="modal-overlay open" id="modalDepAddArt" style="z-index:10300">' +
+    '<div class="modal" style="max-width:460px">' +
+      '<div class="modal-header">➕ Agregar Artículo a ' + dep.nombre +
+        '<button class="close-btn" onclick="closeModal(\'modalDepAddArt\')">✕</button></div>' +
+      '<div class="modal-body">' +
+        '<div class="form-group">' +
+          '<label class="form-label">Artículo existente</label>' +
+          '<select class="form-control" id="depAddArtSel" onchange="depAddArtToggle()">' +
+            '<option value="">— Crear nuevo artículo —</option>' + existentes +
+          '</select>' +
+        '</div>' +
+        '<div id="depAddArtNuevoWrap">' +
+          '<div class="form-group">' +
+            '<label class="form-label">Nombre del nuevo artículo *</label>' +
+            '<input type="text" class="form-control" id="depAddArtNombre" oninput="this.value=toTitleCase(this.value)" placeholder="Ej: Tornillo Autoperforante 8x1">' +
+          '</div>' +
+          '<div class="form-row">' +
+            '<div class="form-group">' +
+              '<label class="form-label">Categoría</label>' +
+              '<input type="text" class="form-control" id="depAddArtCat" oninput="this.value=toTitleCase(this.value)" placeholder="Opcional">' +
+            '</div>' +
+            '<div class="form-group">' +
+              '<label class="form-label">Unidad</label>' +
+              '<input type="text" class="form-control" id="depAddArtUnidad" value="unidad">' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="form-row">' +
+          '<div class="form-group">' +
+            '<label class="form-label">Cantidad a ingresar *</label>' +
+            '<input type="number" class="form-control" id="depAddArtCant" value="1" min="1">' +
+          '</div>' +
+          '<div class="form-group">' +
+            '<label class="form-label">Stock mínimo</label>' +
+            '<input type="number" class="form-control" id="depAddArtMin" value="1" min="0">' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="modal-footer">' +
+        '<button class="btn btn-secondary" onclick="closeModal(\'modalDepAddArt\')">Cancelar</button>' +
+        '<button class="btn btn-primary" onclick="depAddArtConfirmar(\'' + depId + '\')">Agregar</button>' +
+      '</div>' +
+    '</div></div>';
+  const ex = document.getElementById('modalDepAddArt');
+  if (ex) ex.remove();
+  document.body.insertAdjacentHTML('beforeend', modal);
+}
+
+function depAddArtToggle() {
+  const sel = document.getElementById('depAddArtSel').value;
+  const wrap = document.getElementById('depAddArtNuevoWrap');
+  if (wrap) wrap.style.display = sel ? 'none' : 'block';
+}
+
+function depAddArtConfirmar(depId) {
+  const selId = document.getElementById('depAddArtSel').value;
+  const cant = parseInt(document.getElementById('depAddArtCant').value) || 0;
+  if (cant <= 0) { toast('Ingresá una cantidad válida', 'error'); return; }
+
+  if (selId) {
+    // Artículo existente: sumar stock en este depósito
+    const art = state.articulos.find(a => a.id === selId);
+    if (!art) return;
+    art.stock[depId] = (art.stock[depId] || 0) + cant;
+  } else {
+    // Crear nuevo artículo
+    const nombre = toTitleCase((document.getElementById('depAddArtNombre').value || '').trim());
+    if (!nombre) { toast('Ingresá el nombre del artículo', 'error'); return; }
+    const stock = {}; stock[depId] = cant;
+    state.articulos.push({
+      id: genId(),
+      nombre,
+      categoria: toTitleCase((document.getElementById('depAddArtCat').value || '').trim()),
+      unidad: (document.getElementById('depAddArtUnidad').value || 'unidad').trim(),
+      stock,
+      min: parseInt(document.getElementById('depAddArtMin').value) || 1,
+      max: 100,
+      descripcion: '',
+      codigo: null,
+      codigoTipo: null,
+    });
+  }
+  // Registrar movimiento de ingreso
+  state.movimientos.push({
+    id: genId(), tipo: 'ingreso', fecha: now(),
+    depId, cantidad: cant, motivo: 'Carga desde depósito',
+    operador: _pinMode === 'editor' ? 'Editor' : '',
+  });
+  save();
+  closeModal('modalDepAddArt');
+  renderDetalleDeposito();
+  renderDepositos();
+  if (typeof renderArticulos === 'function') renderArticulos();
+  toast('Artículo agregado al depósito', 'success');
+}
+
+// ── Eliminar artículo de un depósito (quita el stock de ese depID) ──
+function depEliminarArticulo(depId) {
+  const dep = state.depositos.find(x => x.id === depId);
+  if (!dep) return;
+  const arts = state.articulos.filter(a => (a.stock[depId] || 0) > 0);
+  if (!arts.length) { toast('No hay artículos en este depósito', 'info'); return; }
+
+  const opts = arts.slice().sort((a,b) => a.nombre.localeCompare(b.nombre,'es'))
+    .map(a => '<label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--border);cursor:pointer">' +
+      '<input type="checkbox" class="depDelArt-chk" value="' + a.id + '" style="width:16px;height:16px;accent-color:var(--accent)">' +
+      '<span style="flex:1">' + a.nombre + '</span>' +
+      '<span style="font-family:\'Barlow Condensed\',sans-serif;font-weight:700;color:var(--accent)">' + (a.stock[depId]||0) + ' ' + (a.unidad||'') + '</span>' +
+      '</label>').join('');
+
+  const modal = '<div class="modal-overlay open" id="modalDepDelArt" style="z-index:10300">' +
+    '<div class="modal" style="max-width:460px">' +
+      '<div class="modal-header">➖ Eliminar Artículos de ' + dep.nombre +
+        '<button class="close-btn" onclick="closeModal(\'modalDepDelArt\')">✕</button></div>' +
+      '<div class="modal-body">' +
+        '<p style="font-size:12px;color:var(--text3);margin-bottom:12px">Seleccioná los artículos a quitar de este depósito. El stock de este depósito se pondrá en cero (no afecta otros depósitos).</p>' +
+        '<div style="max-height:340px;overflow-y:auto;border:1px solid var(--border);border-radius:8px">' + opts + '</div>' +
+      '</div>' +
+      '<div class="modal-footer">' +
+        '<button class="btn btn-secondary" onclick="closeModal(\'modalDepDelArt\')">Cancelar</button>' +
+        '<button class="btn btn-danger" onclick="depDelArtConfirmar(\'' + depId + '\')">Eliminar seleccionados</button>' +
+      '</div>' +
+    '</div></div>';
+  const ex = document.getElementById('modalDepDelArt');
+  if (ex) ex.remove();
+  document.body.insertAdjacentHTML('beforeend', modal);
+}
+
+function depDelArtConfirmar(depId) {
+  const checked = Array.from(document.querySelectorAll('.depDelArt-chk:checked')).map(c => c.value);
+  if (!checked.length) { toast('Seleccioná al menos un artículo', 'error'); return; }
+  checked.forEach(artId => {
+    const art = state.articulos.find(a => a.id === artId);
+    if (art) { delete art.stock[depId]; }
+  });
+  save();
+  closeModal('modalDepDelArt');
+  renderDetalleDeposito();
+  renderDepositos();
+  if (typeof renderArticulos === 'function') renderArticulos();
+  toast(checked.length + ' artículo' + (checked.length!==1?'s':'') + ' quitado' + (checked.length!==1?'s':'') + ' del depósito', 'info');
+}
+
+// ── Carga masiva de artículos a un depósito ──
+function depCargaMasiva(depId) {
+  const dep = state.depositos.find(x => x.id === depId);
+  if (!dep) return;
+  const modal = '<div class="modal-overlay open" id="modalDepBulk" style="z-index:10300">' +
+    '<div class="modal" style="max-width:560px">' +
+      '<div class="modal-header">📋 Carga Masiva — ' + dep.nombre +
+        '<button class="close-btn" onclick="closeModal(\'modalDepBulk\')">✕</button></div>' +
+      '<div class="modal-body">' +
+        '<p style="font-size:12px;color:var(--text3);margin-bottom:10px">Pegá una lista de artículos, uno por línea. Formato flexible:<br>' +
+        '<code style="font-size:11px;color:var(--accent)">Cantidad x Nombre</code> &nbsp;ó&nbsp; <code style="font-size:11px;color:var(--accent)">Nombre, Cantidad</code></p>' +
+        '<textarea class="form-control" id="depBulkText" rows="9" placeholder="Ej:&#10;10 x Tornillo Fischer 8&#10;5 Guantes de Nitrilo&#10;Casco de Seguridad, 12&#10;3x Cinta Aisladora" style="font-family:monospace;font-size:12px;resize:vertical"></textarea>' +
+        '<div id="depBulkPreview" style="margin-top:12px"></div>' +
+      '</div>' +
+      '<div class="modal-footer">' +
+        '<button class="btn btn-secondary" onclick="closeModal(\'modalDepBulk\')">Cancelar</button>' +
+        '<button class="btn btn-secondary" onclick="depBulkVistaPrevia(\'' + depId + '\')">👁 Vista previa</button>' +
+        '<button class="btn btn-primary" onclick="depBulkConfirmar(\'' + depId + '\')">Importar</button>' +
+      '</div>' +
+    '</div></div>';
+  const ex = document.getElementById('modalDepBulk');
+  if (ex) ex.remove();
+  document.body.insertAdjacentHTML('beforeend', modal);
+}
+
+function depBulkParse(text) {
+  const items = [];
+  text.split('\n').forEach(line => {
+    line = line.trim();
+    if (!line) return;
+    let qty = 1, name = '';
+    // "10 x Nombre" o "10x Nombre"
+    let m = line.match(/^(\d+)\s*[xX\*]\s*(.+)$/);
+    if (m) { qty = parseInt(m[1]); name = m[2]; }
+    else {
+      // "Nombre, 10"
+      m = line.match(/^(.+?),\s*(\d+)$/);
+      if (m) { name = m[1]; qty = parseInt(m[2]); }
+      else {
+        // "10 Nombre"
+        m = line.match(/^(\d+)\s+(.+)$/);
+        if (m) { qty = parseInt(m[1]); name = m[2]; }
+        else { name = line; qty = 1; }
+      }
+    }
+    name = toTitleCase(name.trim());
+    if (name) items.push({ name, qty });
+  });
+  return items;
+}
+
+function depBulkVistaPrevia(depId) {
+  const text = document.getElementById('depBulkText').value;
+  const items = depBulkParse(text);
+  const prev = document.getElementById('depBulkPreview');
+  if (!items.length) { prev.innerHTML = '<p style="color:var(--text3);font-size:12px">No se detectaron artículos.</p>'; return; }
+  let html = '<div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--accent);margin-bottom:6px">' + items.length + ' artículos detectados</div>';
+  html += '<div style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:8px">';
+  items.forEach(it => {
+    html += '<div style="display:flex;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--border);font-size:13px">' +
+      '<span>' + it.name + '</span><span style="font-weight:700;color:var(--accent)">' + it.qty + '</span></div>';
+  });
+  html += '</div>';
+  prev.innerHTML = html;
+}
+
+function depBulkConfirmar(depId) {
+  const text = document.getElementById('depBulkText').value;
+  const items = depBulkParse(text);
+  if (!items.length) { toast('No se detectaron artículos', 'error'); return; }
+  let nuevos = 0, actualizados = 0;
+  items.forEach(it => {
+    // Buscar artículo existente por nombre
+    const existente = state.articulos.find(a => a.nombre.toLowerCase() === it.name.toLowerCase());
+    if (existente) {
+      existente.stock[depId] = (existente.stock[depId] || 0) + it.qty;
+      actualizados++;
+    } else {
+      const stock = {}; stock[depId] = it.qty;
+      state.articulos.push({
+        id: genId(), nombre: it.name, categoria: '', unidad: 'unidad',
+        stock, min: 1, max: 100, descripcion: '', codigo: null, codigoTipo: null,
+      });
+      nuevos++;
+    }
+  });
+  state.movimientos.push({
+    id: genId(), tipo: 'ingreso', fecha: now(),
+    depId, cantidad: items.reduce((s,i) => s+i.qty, 0),
+    motivo: 'Carga masiva desde depósito', operador: _pinMode === 'editor' ? 'Editor' : '',
+  });
+  save();
+  closeModal('modalDepBulk');
+  renderDetalleDeposito();
+  renderDepositos();
+  if (typeof renderArticulos === 'function') renderArticulos();
+  toast(nuevos + ' nuevos, ' + actualizados + ' actualizados', 'success');
 }
 
 function openModalDeposito(id) {
@@ -3216,7 +3534,7 @@ function editarDeposito(id) {
 }
 
 function guardarDeposito() {
-  const nombre = document.getElementById('depNombre').value.trim();
+  const nombre = toTitleCase(document.getElementById('depNombre').value.trim());
   if (!nombre) { toast('Ingresá el nombre del depósito', 'error'); return; }
   const id = document.getElementById('depEditId').value;
   const data = {
@@ -3376,7 +3694,7 @@ function editarArticulo(id) {
 }
 
 function guardarArticulo() {
-  const nombre = document.getElementById('artNombre').value.trim();
+  const nombre = toTitleCase(document.getElementById('artNombre').value.trim());
   if (!nombre) { toast('Ingresá el nombre del artículo', 'error'); return; }
   const id = document.getElementById('artEditId').value;
   const depId = document.getElementById('artDeposito').value;
@@ -3709,10 +4027,11 @@ function ingParseText(text) {
         else if (g2num && m[1]) { qty = parseFloat(m[2].replace(',','.')); name = m[1]; }
         else continue;
 
-        name = name.trim().toUpperCase()
+        name = name.trim()
           .replace(/\s+/g,' ')
           .replace(/[^\w\s\-\/\.ÑñÁÉÍÓÚáéíóú]/g,'')
           .trim();
+        name = toTitleCase(name);
 
         // Skip if too short, too long, or obviously a price/date
         if (name.length < 3 || name.length > 80) continue;
@@ -3923,7 +4242,7 @@ function registrarIngreso() {
       // Create new article
       art = {
         id: genId(),
-        nombre: item.nombre,
+        nombre: toTitleCase(item.nombre),
         categoria: '',
         unidad: 'unidad',
         stock: {},
