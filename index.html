@@ -820,12 +820,19 @@
 
     <!-- ===== STOCK GLOBAL ===== -->
     <div id="panel-stock" class="panel">
-      <div class="page-title">Stock Global</div>
-      <div class="page-sub">Vista consolidada de todo el inventario · Consultá la ubicación de cada artículo</div>
+      <div class="flex justify-between items-center" style="margin-bottom:4px">
+        <div>
+          <div class="page-title">Stock Global</div>
+          <div class="page-sub">Vista consolidada · Consultá ubicaciones y reservá artículos de Stock</div>
+        </div>
+        <button class="btn btn-secondary btn-sm reader-ok" onclick="abrirPanelReservas()" style="position:relative">
+          🛒 Reservas <span id="reservasBadge" class="nav-badge" style="display:none">0</span>
+        </button>
+      </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin:16px 0">
-        <input type="text" class="form-control" id="stockBuscar" placeholder="🔍 Buscar artículo..."
+        <input type="text" class="form-control reader-ok" id="stockBuscar" placeholder="🔍 Buscar artículo..."
                oninput="renderStockGlobal()" style="flex:1;min-width:200px">
-        <select class="form-control" id="stockSeccionFiltro" onchange="renderStockGlobal()" style="width:auto">
+        <select class="form-control reader-ok" id="stockSeccionFiltro" onchange="renderStockGlobal()" style="width:auto">
           <option value="">Todas las secciones</option>
           <option value="articulos">📦 Artículos</option>
           <option value="indumentaria">👕 Indumentaria Laboral</option>
@@ -834,6 +841,11 @@
           <option value="insumos">🧴 Insumos</option>
           <option value="aguagas">💧 Agua y Gas</option>
           <option value="ropacama">🛏 Ropa de Cama</option>
+        </select>
+        <select class="form-control reader-ok" id="stockTipoFiltro" onchange="renderStockGlobal()" style="width:auto">
+          <option value="">Todos los tipos</option>
+          <option value="stock">📦 Stock (reservable)</option>
+          <option value="patrimonial">🏛 Patrimonial</option>
         </select>
       </div>
       <div id="stockGlobalContent"></div>
@@ -1334,6 +1346,7 @@
           <div class="page-sub">Inventario por área · Controles e historial de verificación</div>
         </div>
         <div style="display:flex;gap:8px" id="herrHeaderBtns">
+          <button class="btn btn-secondary edit-only" id="herrBtnArea" onclick="herramientasAgregarArea()">+ Área</button>
           <button class="btn btn-secondary edit-only" id="herrBtnNueva" onclick="herramientasAbrirNueva()">+ Herramienta</button>
           <button class="btn btn-primary edit-only" id="herrBtnBulk" onclick="herramientasAbrirCarga()">📋 Carga masiva</button>
           <button class="btn btn-secondary edit-only" id="herrBtnControl" onclick="herrControlAbrir()" style="display:none">+ Control</button>
@@ -1862,6 +1875,26 @@
      ═══════════════════════════════════════════════════════════ */
 
   /* ── TABLET (≤ 1024px) ── */
+  
+  /* ── Botones de filtro de área (Herramientas) ── */
+  .herr-area-btn {
+    padding: 6px 13px; border-radius: 18px; font-size: 12px; font-weight: 600;
+    border: 1px solid var(--border); background: var(--bg3); color: var(--text2);
+    cursor: pointer; transition: all .15s; font-family: inherit; white-space: nowrap;
+  }
+  .herr-area-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .herr-area-btn.activo { background: rgba(224,92,26,.15); border-color: var(--accent); color: var(--accent); }
+  /* Herramientas Vehículos resaltado */
+  .herr-area-btn.vehiculos {
+    background: linear-gradient(135deg, rgba(224,92,26,.18), rgba(224,92,26,.06));
+    border: 1.5px solid var(--accent); color: var(--accent); font-weight: 700;
+    box-shadow: 0 0 0 2px rgba(224,92,26,.08);
+  }
+  .herr-area-btn.vehiculos.activo {
+    background: var(--accent); color: #0d1a22;
+    box-shadow: 0 2px 12px rgba(224,92,26,.4);
+  }
+
   @media (max-width: 1024px) {
     .header { padding: 0 14px; }
     .main { padding: 16px; }
@@ -2319,6 +2352,13 @@ function initData() {
       });
       state._ropacamaV2 = true;
     }
+    // ── Nuevas estructuras (reservas, tipos de stock, mov internos) ──
+    if (!state.reservas)     state.reservas     = [];
+    if (!state.stockTipos)   state.stockTipos   = {};
+    if (!state.movInternos)  state.movInternos  = { ropacama:[], aguagas:[] };
+    if (!state.movInternos.ropacama) state.movInternos.ropacama = [];
+    if (!state.movInternos.aguagas)  state.movInternos.aguagas  = [];
+    if (state.herramientas && !state.herramientas.areas) state.herramientas.areas = [];
     // ── One-time migration: corregir nombres en MAYÚSCULAS ──
     if (!state._titleCaseV1 && typeof toTitleCase === 'function') {
       function fixCaps(s) {
@@ -5076,6 +5116,7 @@ function renderStockGlobal() {
   // ── 1. Artículos ──
   const arts = (state.articulos || []).map(function(a) {
     return {
+      key: 'art:' + a.id,
       nombre: a.nombre, unidad: a.unidad || 'u',
       total: getStockTotal(a),
       ubicaciones: Object.entries(a.stock || {}).filter(function(e){ return e[1] > 0; })
@@ -5098,7 +5139,7 @@ function renderStockGlobal() {
         total += st;
         if (st > 0) ubic.push({ dep: 'Talle ' + talla, qty: st });
       });
-      return { nombre: p.nombre, unidad: 'u', total: total, ubicaciones: ubic,
+      return { key: grupo + ':' + p.id, nombre: p.nombre, unidad: 'u', total: total, ubicaciones: ubic,
                status: total <= 0 ? 'red' : 'green' };
     });
     secciones.push({
@@ -5110,7 +5151,7 @@ function renderStockGlobal() {
 
   // ── 3. Herramientas ──
   const herrItems = (state.herramientas && state.herramientas.items || []).map(function(h) {
-    return { nombre: h.nombre, unidad: h.unidad || 'u', total: h.cantidad || 0,
+    return { key: 'herr:' + h.id, nombre: h.nombre, unidad: h.unidad || 'u', total: h.cantidad || 0,
              ubicaciones: [{ dep: h.area || 'Sin área', qty: h.cantidad || 0 }],
              status: (h.cantidad||0) <= 0 ? 'red' : 'green' };
   });
@@ -5119,7 +5160,7 @@ function renderStockGlobal() {
   // ── 4. Insumos ──
   const insItems = (state.insumos && state.insumos.items || []).map(function(i) {
     const area = (state.insumos.areas || []).find(function(a){ return a.id === i.areaId; });
-    return { nombre: i.nombre, unidad: i.unidad || 'u', total: i.stock || 0,
+    return { key: 'ins:' + i.id, nombre: i.nombre, unidad: i.unidad || 'u', total: i.stock || 0,
              ubicaciones: [{ dep: area ? area.nombre : 'Sin área', qty: i.stock || 0 }],
              status: (i.stock||0) <= 0 ? 'red' : (i.stock <= (i.min||1) ? 'yellow' : 'green') };
   });
@@ -5140,6 +5181,7 @@ function renderStockGlobal() {
         const qty = e[est] || 0;
         const label = { enUso:'En Uso', lleno:'Lleno', vacio:'Vacío' }[est];
         agItems.push({
+          key: 'ag:' + it.id + ':' + est,
           nombre: it.nombre + ' — ' + label, unidad: it.unidad || 'u',
           total: qty, ubicaciones: qty > 0 ? [{ dep: label, qty: qty }] : [],
           status: qty <= 0 ? 'red' : 'green',
@@ -5147,6 +5189,7 @@ function renderStockGlobal() {
       });
     } else {
       agItems.push({
+        key: 'ag:' + it.id,
         nombre: it.nombre, unidad: it.unidad || 'u', total: total,
         ubicaciones: ubic, status: total <= 0 ? 'red' : (total <= (it.min||0) ? 'yellow' : 'green'),
       });
@@ -5162,13 +5205,18 @@ function renderStockGlobal() {
     if (e.limpio > 0)   ubic.push({ dep: 'Limpio', qty: e.limpio });
     if (e.sucio > 0)    ubic.push({ dep: 'Sucio', qty: e.sucio });
     if (e.descarte > 0) ubic.push({ dep: 'Descarte', qty: e.descarte });
-    return { nombre: it.nombre, unidad: 'u', total: total,
+    return { key: 'rc:' + it.id, nombre: it.nombre, unidad: 'u', total: total,
              ubicaciones: ubic,
              status: (e.limpio||0) <= 0 ? 'red' : ((e.limpio||0) <= (it.min||1) ? 'yellow' : 'green') };
   });
   secciones.push({ key:'ropacama', label:'🛏 Ropa de Cama', items: rcItems });
 
   // ── Render ──
+  const tipoFilt = (document.getElementById('stockTipoFiltro') || {value:''}).value;
+  const isReader = document.body.classList.contains('visitor-mode');
+  if (!state.stockTipos) state.stockTipos = {};      // { itemKey: 'stock'|'patrimonial' }
+  if (!state.reservas)   state.reservas   = [];
+
   let html = '';
   let totalShown = 0;
 
@@ -5176,6 +5224,8 @@ function renderStockGlobal() {
     if (secFilt && secFilt !== sec.key) return;
     let items = sec.items;
     if (q) items = items.filter(function(it){ return it.nombre.toLowerCase().includes(q); });
+    // Filtro por tipo
+    if (tipoFilt) items = items.filter(function(it){ return stockTipoDe(it.key, sec.key) === tipoFilt; });
     if (!items.length) return;
     totalShown += items.length;
 
@@ -5186,9 +5236,10 @@ function renderStockGlobal() {
       '</div>';
 
     html += '<div style="overflow-x:auto"><table class="tbl"><thead><tr>' +
-      '<th>Artículo</th><th style="text-align:center;width:110px">Stock Total</th>' +
-      '<th style="text-align:center;width:90px">Estado</th>' +
-      '<th style="text-align:right;width:120px"></th>' +
+      '<th>Artículo</th><th style="text-align:center;width:90px">Stock</th>' +
+      '<th style="text-align:center;width:80px">Estado</th>' +
+      '<th style="text-align:center;width:120px">Tipo</th>' +
+      '<th style="text-align:right;width:170px"></th>' +
       '</tr></thead><tbody>';
 
     items.sort(function(a,b){ return a.nombre.localeCompare(b.nombre, 'es'); }).forEach(function(it, i) {
@@ -5196,17 +5247,48 @@ function renderStockGlobal() {
       const stLabel = it.status === 'green' ? 'OK' : it.status === 'yellow' ? 'Bajo' : 'Sin stock';
       const rowId = 'stkrow-' + sec.key + '-' + i;
       const ubicJson = encodeURIComponent(JSON.stringify(it.ubicaciones));
+      const tipo = stockTipoDe(it.key, sec.key);
+      const esStock = (tipo === 'stock');
+      const reservado = reservasActivasDe(it.key);
+      const disponible = Math.max(0, it.total - reservado);
+
+      // Celda Tipo
+      let tipoCell;
+      if (isReader) {
+        tipoCell = esStock
+          ? '<span class="badge" style="background:var(--blue2)18;color:var(--blue2);border:1px solid var(--blue2)40">📦 Stock</span>'
+          : '<span class="badge" style="background:var(--yellow2)18;color:var(--yellow2);border:1px solid var(--yellow2)40">🏛 Patrimonial</span>';
+      } else {
+        tipoCell = '<select class="form-control" style="font-size:11px;padding:3px 6px;width:120px" ' +
+          'onchange="stockSetTipo(\'' + it.key + '\', this.value)">' +
+          '<option value="stock"' + (esStock?' selected':'') + '>📦 Stock</option>' +
+          '<option value="patrimonial"' + (!esStock?' selected':'') + '>🏛 Patrimonial</option>' +
+          '</select>';
+      }
+
+      // Botón reservar (solo si es Stock y hay disponible)
+      let reservarBtn = '';
+      if (esStock) {
+        reservarBtn = '<button class="btn btn-primary btn-sm reader-ok" ' +
+          (disponible <= 0 ? 'disabled style="opacity:.4"' : '') +
+          ' onclick="abrirReservaArticulo(\'' + it.key + '\',\'' + it.nombre.replace(/[\'\\\\]/g,'') + '\',' + disponible + ',\'' + it.unidad + '\')">🛒 Reservar</button>';
+      }
+
       html += '<tr>' +
-        '<td><strong>' + it.nombre + '</strong></td>' +
+        '<td><strong>' + it.nombre + '</strong>' +
+          (reservado > 0 ? '<div style="font-size:10px;color:var(--yellow2)">' + reservado + ' reservado(s) · ' + disponible + ' disp.</div>' : '') +
+        '</td>' +
         '<td style="text-align:center">' +
           '<span style="font-family:\'Barlow Condensed\',sans-serif;font-size:20px;font-weight:700">' + it.total + '</span>' +
           '<span style="color:var(--text3);font-size:11px"> ' + it.unidad + '</span></td>' +
         '<td style="text-align:center"><span class="badge" style="background:' + stColor + '18;color:' + stColor + ';border:1px solid ' + stColor + '40">' + stLabel + '</span></td>' +
-        '<td style="text-align:right">' +
-          '<button class="btn btn-secondary btn-sm reader-ok" onclick="stockConsultar(this,\'' + ubicJson + '\',\'' + it.nombre.replace(/[\'\\\\]/g,'') + '\')">🔍 Consultar</button>' +
-        '</td>' +
+        '<td style="text-align:center">' + tipoCell + '</td>' +
+        '<td style="text-align:right"><div style="display:flex;gap:5px;justify-content:flex-end;flex-wrap:wrap">' +
+          reservarBtn +
+          '<button class="btn btn-secondary btn-sm reader-ok" onclick="stockConsultar(this,\'' + ubicJson + '\',\'' + it.nombre.replace(/[\'\\\\]/g,'') + '\')">🔍</button>' +
+        '</div></td>' +
         '</tr>' +
-        '<tr id="' + rowId + '" style="display:none"><td colspan="4" style="padding:0;background:var(--bg3)">' +
+        '<tr id="' + rowId + '" style="display:none"><td colspan="5" style="padding:0;background:var(--bg3)">' +
           '<div class="stk-detalle" style="padding:0 14px"></div>' +
         '</td></tr>';
     });
@@ -5220,6 +5302,382 @@ function renderStockGlobal() {
   }
 
   cont.innerHTML = html;
+  actualizarReservasBadge();
+}
+
+// ── Tipo de stock: 'stock' (reservable) o 'patrimonial' ──
+// Por defecto: artículos/insumos/agua = stock; herramientas/indumentaria/epp = patrimonial
+function stockTipoDe(itemKey, secKey) {
+  if (state.stockTipos && state.stockTipos[itemKey]) return state.stockTipos[itemKey];
+  // Defaults razonables por sección
+  if (secKey === 'herramientas' || secKey === 'indumentaria' || secKey === 'epp') return 'patrimonial';
+  return 'stock';
+}
+
+function stockSetTipo(itemKey, tipo) {
+  if (!state.stockTipos) state.stockTipos = {};
+  state.stockTipos[itemKey] = tipo;
+  save();
+  renderStockGlobal();
+}
+
+
+
+
+
+// ══════════════════════════════════════════════════════════════════
+// MOVIMIENTOS INTERNOS (Ropa de Cama / Agua y Gas)
+// state.movInternos = { ropacama:[...], aguagas:[...] }
+// cada mov: { id, itemNombre, cantidad, desde, hacia, justif, fecha, operador }
+// ══════════════════════════════════════════════════════════════════
+
+var MOV_UBICACIONES = {
+  ropacama: ['Lavandería', 'Campamento La Brea', 'Base San Juan', 'Otro'],
+  aguagas:  ['Campamento La Brea', 'Campamento Móvil', 'Base San Juan', 'Otro'],
+};
+
+function movInternosInit() {
+  if (!state.movInternos) state.movInternos = {};
+  if (!state.movInternos.ropacama) state.movInternos.ropacama = [];
+  if (!state.movInternos.aguagas)  state.movInternos.aguagas  = [];
+}
+
+function renderMovInternos(sector) {
+  movInternosInit();
+  var movs = (state.movInternos[sector] || []).slice().reverse();
+  var titulo = sector === 'ropacama' ? '🧺 Movimientos Internos — Ropa de Cama' : '🚚 Movimientos Internos — Agua y Gas';
+  var sub = 'Registro de dónde se encuentra cada artículo de este sector';
+
+  var html = '<div class="card" style="margin-top:24px">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">' +
+      '<div><div style="font-size:13px;font-weight:700;color:var(--accent)">' + titulo + '</div>' +
+      '<div style="font-size:11px;color:var(--text3)">' + sub + '</div></div>' +
+      '<button class="btn btn-primary btn-sm edit-only" onclick="abrirMovInterno(\'' + sector + '\')">+ Registrar movimiento</button>' +
+    '</div>';
+
+  if (!movs.length) {
+    html += '<div style="color:var(--text3);font-size:12px;padding:8px 0;font-style:italic">Sin movimientos registrados</div>';
+  } else {
+    html += '<div style="overflow-x:auto"><table class="tbl"><thead><tr>' +
+      '<th>Artículo</th><th style="text-align:center">Cant.</th><th>Desde</th><th>Hacia</th><th>Justificación</th><th>Fecha</th><th class="edit-only"></th>' +
+      '</tr></thead><tbody>';
+    movs.forEach(function(m) {
+      html += '<tr>' +
+        '<td style="font-weight:600">' + m.itemNombre + '</td>' +
+        '<td style="text-align:center;font-family:\'Barlow Condensed\',sans-serif;font-size:16px;font-weight:700">' + m.cantidad + '</td>' +
+        '<td style="font-size:12px">' + (m.desde || '—') + '</td>' +
+        '<td style="font-size:12px"><span style="color:var(--accent)">📍 ' + (m.hacia || '—') + '</span></td>' +
+        '<td style="font-size:11px;color:var(--text3)">' + (m.justif || '—') + '</td>' +
+        '<td style="font-size:11px;color:var(--text2)">' + (m.fecha || '') + '</td>' +
+        '<td class="edit-only"><button class="btn btn-danger btn-sm" onclick="eliminarMovInterno(\'' + sector + '\',\'' + m.id + '\')" style="padding:3px 8px">🗑</button></td>' +
+        '</tr>';
+    });
+    html += '</tbody></table></div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+function abrirMovInterno(sector) {
+  movInternosInit();
+  var ubics = MOV_UBICACIONES[sector] || [];
+  // Lista de artículos del sector
+  var itemsArr = sector === 'ropacama'
+    ? (state.ropacama.items || []).map(function(i){ return i.nombre; })
+    : (state.aguagas.items || []).map(function(i){ return i.nombre; });
+  var itemOpts = itemsArr.map(function(n){ return '<option value="' + n + '">' + n + '</option>'; }).join('');
+  var ubicOpts = ubics.map(function(u){ return '<option value="' + u + '">' + u + '</option>'; }).join('');
+
+  var modal = '<div class="modal-overlay open" id="modalMovInt" style="z-index:10400">' +
+    '<div class="modal" style="max-width:460px">' +
+      '<div class="modal-header">Registrar Movimiento Interno' +
+        '<button class="close-btn" onclick="closeModal(\'modalMovInt\')">✕</button></div>' +
+      '<div class="modal-body">' +
+        '<div class="form-group"><label class="form-label">Artículo *</label>' +
+          '<select class="form-control" id="miItem"><option value="">— Seleccioná —</option>' + itemOpts + '</select></div>' +
+        '<div class="form-row">' +
+          '<div class="form-group"><label class="form-label">Cantidad *</label>' +
+            '<input type="number" class="form-control" id="miCant" value="1" min="1"></div>' +
+          '<div class="form-group"><label class="form-label">Desde</label>' +
+            '<select class="form-control" id="miDesde"><option value="">—</option>' + ubicOpts + '</select></div>' +
+        '</div>' +
+        '<div class="form-group"><label class="form-label">Hacia (ubicación actual) *</label>' +
+          '<select class="form-control" id="miHacia" onchange="miToggleJustif(\'' + sector + '\')"><option value="">— Seleccioná —</option>' + ubicOpts + '</select></div>' +
+        '<div class="form-group" id="miJustifWrap" style="display:none"><label class="form-label">Justificación *</label>' +
+          '<input type="text" class="form-control" id="miJustif" placeholder="Detallá el destino / motivo"></div>' +
+      '</div>' +
+      '<div class="modal-footer">' +
+        '<button class="btn btn-secondary" onclick="closeModal(\'modalMovInt\')">Cancelar</button>' +
+        '<button class="btn btn-primary" onclick="guardarMovInterno(\'' + sector + '\')">Registrar</button>' +
+      '</div>' +
+    '</div></div>';
+  var ex = document.getElementById('modalMovInt');
+  if (ex) ex.remove();
+  document.body.insertAdjacentHTML('beforeend', modal);
+}
+
+// Mostrar justificación si destino requiere (Otro siempre; Campamento Móvil en aguagas)
+function miToggleJustif(sector) {
+  var hacia = document.getElementById('miHacia').value;
+  var requiere = (hacia === 'Otro') || (sector === 'aguagas' && hacia === 'Campamento Móvil');
+  document.getElementById('miJustifWrap').style.display = requiere ? 'block' : 'none';
+}
+
+function guardarMovInterno(sector) {
+  movInternosInit();
+  var item = document.getElementById('miItem').value;
+  var cant = parseInt(document.getElementById('miCant').value) || 0;
+  var desde = document.getElementById('miDesde').value;
+  var hacia = document.getElementById('miHacia').value;
+  var justif = (document.getElementById('miJustif').value || '').trim();
+  if (!item) { toast('Seleccioná un artículo', 'error'); return; }
+  if (cant <= 0) { toast('Cantidad inválida', 'error'); return; }
+  if (!hacia) { toast('Seleccioná la ubicación destino', 'error'); return; }
+  var requiere = (hacia === 'Otro') || (sector === 'aguagas' && hacia === 'Campamento Móvil');
+  if (requiere && !justif) { toast('La justificación es obligatoria para "' + hacia + '"', 'error'); return; }
+  state.movInternos[sector].push({
+    id: genId(), itemNombre: item, cantidad: cant, desde: desde, hacia: hacia,
+    justif: justif, fecha: now(), operador: 'Editor',
+  });
+  save();
+  closeModal('modalMovInt');
+  if (sector === 'ropacama') renderRopacama(); else renderAguagas();
+  toast('Movimiento registrado', 'success');
+}
+
+function eliminarMovInterno(sector, movId) {
+  movInternosInit();
+  if (!confirm('¿Eliminar este movimiento?')) return;
+  state.movInternos[sector] = state.movInternos[sector].filter(function(m){ return m.id !== movId; });
+  save();
+  if (sector === 'ropacama') renderRopacama(); else renderAguagas();
+  toast('Movimiento eliminado', 'info');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// SISTEMA DE RESERVAS (para Solicitudes de Compra)
+// state.reservas = [{ id, itemKey, nombre, cantidad, unidad, solicitante,
+//                     scNumero, motivo, estado:'pendiente'|'aprobada'|'rechazada',
+//                     fecha, fechaResol, resolPor, obsResol }]
+// ══════════════════════════════════════════════════════════════════
+
+function reservasInit() {
+  if (!state.reservas) state.reservas = [];
+}
+
+// Suma de reservas ACTIVAS (pendientes + aprobadas) de un item
+function reservasActivasDe(itemKey) {
+  reservasInit();
+  return state.reservas
+    .filter(function(r){ return r.itemKey === itemKey && (r.estado === 'pendiente' || r.estado === 'aprobada'); })
+    .reduce(function(s, r){ return s + (r.cantidad || 0); }, 0);
+}
+
+function abrirReservaArticulo(itemKey, nombre, disponible, unidad) {
+  reservasInit();
+  if (disponible <= 0) { toast('No hay stock disponible para reservar', 'error'); return; }
+  var modal = '<div class="modal-overlay open" id="modalReserva" style="z-index:10400">' +
+    '<div class="modal" style="max-width:440px">' +
+      '<div class="modal-header">🛒 Reservar — ' + nombre +
+        '<button class="close-btn" onclick="closeModal(\'modalReserva\')">✕</button></div>' +
+      '<div class="modal-body">' +
+        '<div style="background:rgba(74,159,216,.1);border:1px solid rgba(74,159,216,.3);border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:var(--blue2)">' +
+          'Disponible para reservar: <strong>' + disponible + ' ' + unidad + '</strong></div>' +
+        '<div class="form-group"><label class="form-label">Tu nombre / sector *</label>' +
+          '<input type="text" class="form-control" id="resvSolicitante" placeholder="Ej: Juan Pérez — Taller"></div>' +
+        '<div class="form-row">' +
+          '<div class="form-group"><label class="form-label">Cantidad *</label>' +
+            '<input type="number" class="form-control" id="resvCantidad" value="1" min="1" max="' + disponible + '"></div>' +
+          '<div class="form-group"><label class="form-label">N° SC (opcional)</label>' +
+            '<input type="text" class="form-control" id="resvSC" placeholder="Ej: SC-2026-014"></div>' +
+        '</div>' +
+        '<div class="form-group"><label class="form-label">Motivo de la reserva</label>' +
+          '<textarea class="form-control" id="resvMotivo" rows="2" placeholder="Para qué lo necesitás"></textarea></div>' +
+        '<div style="font-size:11px;color:var(--text3)">La reserva queda <strong>pendiente</strong> hasta que el pañolero la apruebe o rechace.</div>' +
+      '</div>' +
+      '<div class="modal-footer">' +
+        '<button class="btn btn-secondary" onclick="closeModal(\'modalReserva\')">Cancelar</button>' +
+        '<button class="btn btn-primary" onclick="confirmarReserva(\'' + itemKey + '\',\'' + nombre.replace(/'/g,"") + '\',' + disponible + ',\'' + unidad + '\')">Reservar</button>' +
+      '</div>' +
+    '</div></div>';
+  var ex = document.getElementById('modalReserva');
+  if (ex) ex.remove();
+  document.body.insertAdjacentHTML('beforeend', modal);
+}
+
+function confirmarReserva(itemKey, nombre, disponible, unidad) {
+  reservasInit();
+  var solicitante = (document.getElementById('resvSolicitante').value || '').trim();
+  var cantidad = parseInt(document.getElementById('resvCantidad').value) || 0;
+  var sc = (document.getElementById('resvSC').value || '').trim();
+  var motivo = (document.getElementById('resvMotivo').value || '').trim();
+  if (!solicitante) { toast('Ingresá tu nombre o sector', 'error'); return; }
+  if (cantidad <= 0) { toast('Cantidad inválida', 'error'); return; }
+  if (cantidad > disponible) { toast('Solo hay ' + disponible + ' disponibles', 'error'); return; }
+  state.reservas.push({
+    id: genId(), itemKey: itemKey, nombre: nombre, cantidad: cantidad, unidad: unidad,
+    solicitante: toTitleCase(solicitante), scNumero: sc, motivo: motivo,
+    estado: 'pendiente', fecha: now(), fechaResol: null, resolPor: '', obsResol: '',
+  });
+  save();
+  closeModal('modalReserva');
+  renderStockGlobal();
+  toast('Reserva creada · pendiente de aprobación', 'success');
+}
+
+function abrirPanelReservas() {
+  reservasInit();
+  var isReader = document.body.classList.contains('visitor-mode');
+  var reservas = state.reservas.slice().sort(function(a,b){
+    var orden = { pendiente:0, aprobada:1, rechazada:2 };
+    if (orden[a.estado] !== orden[b.estado]) return orden[a.estado] - orden[b.estado];
+    return (b.fecha || '').localeCompare(a.fecha || '');
+  });
+
+  var pend = reservas.filter(function(r){ return r.estado === 'pendiente'; }).length;
+
+  var rows = reservas.length ? reservas.map(function(r) {
+    var estColor = r.estado === 'aprobada' ? 'var(--green2)' : r.estado === 'rechazada' ? 'var(--red2)' : 'var(--yellow2)';
+    var estLabel = r.estado === 'aprobada' ? '✓ Aprobada' : r.estado === 'rechazada' ? '✗ Rechazada' : '⏳ Pendiente';
+    var acciones = '';
+    if (r.estado === 'pendiente' && !isReader) {
+      acciones = '<button class="btn btn-primary btn-sm" onclick="resolverReserva(\'' + r.id + '\',\'aprobada\')" style="font-size:11px">✓ Aprobar</button> ' +
+                 '<button class="btn btn-danger btn-sm" onclick="resolverReserva(\'' + r.id + '\',\'rechazada\')" style="font-size:11px">✗ Rechazar</button>';
+    } else if (!isReader) {
+      acciones = '<button class="btn btn-secondary btn-sm" onclick="eliminarReserva(\'' + r.id + '\')" style="font-size:11px" title="Eliminar registro">🗑</button>';
+    }
+    return '<tr>' +
+      '<td><strong>' + r.nombre + '</strong>' + (r.scNumero ? '<div style="font-size:10px;color:var(--accent)">' + r.scNumero + '</div>' : '') + '</td>' +
+      '<td style="text-align:center;font-family:\'Barlow Condensed\',sans-serif;font-size:18px;font-weight:700">' + r.cantidad + '<span style="font-size:10px;color:var(--text3)"> ' + (r.unidad||'') + '</span></td>' +
+      '<td style="font-size:12px">' + r.solicitante + (r.motivo ? '<div style="font-size:10px;color:var(--text3)">' + r.motivo + '</div>' : '') + '</td>' +
+      '<td style="font-size:11px;color:var(--text2)">' + (r.fecha||'') + '</td>' +
+      '<td style="text-align:center"><span class="badge" style="background:' + estColor + '18;color:' + estColor + ';border:1px solid ' + estColor + '40">' + estLabel + '</span>' +
+        (r.resolPor ? '<div style="font-size:9px;color:var(--text3)">' + r.resolPor + '</div>' : '') + '</td>' +
+      '<td style="text-align:right;white-space:nowrap">' + acciones + '</td>' +
+      '</tr>';
+  }).join('') : '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px">Sin reservas registradas</td></tr>';
+
+  var modal = '<div class="modal-overlay open" id="modalPanelReservas" style="z-index:10350">' +
+    '<div class="modal" style="max-width:760px">' +
+      '<div class="modal-header">🛒 Reservas de Stock' + (pend ? ' · ' + pend + ' pendiente(s)' : '') +
+        '<button class="close-btn" onclick="closeModal(\'modalPanelReservas\')">✕</button></div>' +
+      '<div class="modal-body" style="padding:0">' +
+        (isReader ? '<div style="padding:8px 16px;font-size:11px;color:var(--text3);background:var(--bg3);border-bottom:1px solid var(--border)">Modo lector · solo el pañolero (Modo Editor) puede aprobar o rechazar</div>' : '') +
+        '<div style="overflow-x:auto"><table class="tbl"><thead><tr>' +
+          '<th>Artículo</th><th style="text-align:center">Cant.</th><th>Solicitante</th><th>Fecha</th><th style="text-align:center">Estado</th><th></th>' +
+        '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
+      '</div>' +
+      '<div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal(\'modalPanelReservas\')">Cerrar</button></div>' +
+    '</div></div>';
+  var ex = document.getElementById('modalPanelReservas');
+  if (ex) ex.remove();
+  document.body.insertAdjacentHTML('beforeend', modal);
+}
+
+// Aprobar/rechazar — al aprobar, descuenta del stock real
+function resolverReserva(reservaId, decision) {
+  reservasInit();
+  var r = state.reservas.find(function(x){ return x.id === reservaId; });
+  if (!r) return;
+  if (decision === 'aprobada') {
+    // Descontar del stock real según el tipo de item
+    var ok = descontarStockPorReserva(r);
+    if (!ok) { toast('No hay stock suficiente para aprobar', 'error'); return; }
+    r.estado = 'aprobada';
+    toast('Reserva aprobada · stock descontado', 'success');
+  } else {
+    r.estado = 'rechazada';
+    toast('Reserva rechazada', 'info');
+  }
+  r.fechaResol = now();
+  r.resolPor = 'Pañolero';
+  save();
+  closeModal('modalPanelReservas');
+  abrirPanelReservas();
+  renderStockGlobal();
+}
+
+// Descuenta del stock real según itemKey (art:/herr:/ins:/ag:/rc:/indumentaria:/epp:)
+function descontarStockPorReserva(r) {
+  var parts = r.itemKey.split(':');
+  var tipo = parts[0], id = parts[1];
+  var cant = r.cantidad || 0;
+  if (tipo === 'art') {
+    var a = state.articulos.find(function(x){ return x.id === id; });
+    if (!a) return false;
+    var totalArt = getStockTotal(a);
+    if (totalArt < cant) return false;
+    // Descontar del depósito con más stock
+    var deps = Object.entries(a.stock || {}).filter(function(e){ return e[1] > 0; }).sort(function(x,y){ return y[1]-x[1]; });
+    var rest = cant;
+    deps.forEach(function(e){
+      if (rest <= 0) return;
+      var take = Math.min(e[1], rest);
+      a.stock[e[0]] -= take; rest -= take;
+    });
+    return rest <= 0;
+  }
+  if (tipo === 'herr') {
+    var h = state.herramientas.items.find(function(x){ return x.id === id; });
+    if (!h || (h.cantidad||0) < cant) return false;
+    h.cantidad -= cant; return true;
+  }
+  if (tipo === 'ins') {
+    var ins = state.insumos.items.find(function(x){ return x.id === id; });
+    if (!ins || (ins.stock||0) < cant) return false;
+    ins.stock -= cant; return true;
+  }
+  if (tipo === 'ag') {
+    var ag = state.aguagas.items.find(function(x){ return x.id === id; });
+    if (!ag) return false;
+    var estado = parts[2];  // enUso/lleno/vacio o undefined
+    if (estado && ag.estados) {
+      if ((ag.estados[estado]||0) < cant) return false;
+      ag.estados[estado] -= cant; return true;
+    } else if (ag.estados) {
+      // descontar de lleno por defecto
+      if ((ag.estados.lleno||0) < cant) return false;
+      ag.estados.lleno -= cant; return true;
+    }
+    return false;
+  }
+  if (tipo === 'rc') {
+    var rc = state.ropacama.items.find(function(x){ return x.id === id; });
+    if (!rc || !rc.estados || (rc.estados.limpio||0) < cant) return false;
+    rc.estados.limpio -= cant; return true;
+  }
+  if (tipo === 'indumentaria' || tipo === 'epp') {
+    var p = state.ropa.prendas.find(function(x){ return x.id === id; });
+    if (!p || !p.tallas) return false;
+    var rest = cant;
+    Object.keys(p.tallas).forEach(function(t){
+      if (rest <= 0) return;
+      var st = (p.tallas[t] && p.tallas[t].stock) || 0;
+      var take = Math.min(st, rest);
+      p.tallas[t].stock -= take; rest -= take;
+    });
+    return rest <= 0;
+  }
+  return false;
+}
+
+function eliminarReserva(reservaId) {
+  reservasInit();
+  if (!confirm('¿Eliminar este registro de reserva?')) return;
+  state.reservas = state.reservas.filter(function(x){ return x.id !== reservaId; });
+  save();
+  closeModal('modalPanelReservas');
+  abrirPanelReservas();
+}
+
+function actualizarReservasBadge() {
+  reservasInit();
+  var pend = state.reservas.filter(function(r){ return r.estado === 'pendiente'; }).length;
+  var badge = document.getElementById('reservasBadge');
+  if (badge) {
+    badge.textContent = pend;
+    badge.style.display = pend > 0 ? '' : 'none';
+  }
 }
 
 // ── Toggle deposit detail for a stock item ────────────────────────
@@ -5799,6 +6257,7 @@ if (typeof supabasePull === 'function' && _sbSyncEnabled) {
   supabaseSetStatus('disabled');
 }
 renderDashboard();
+try { actualizarReservasBadge(); } catch(e){}
 
 
 // ══════════════════════════════════════════════════════════════════
@@ -6575,6 +7034,7 @@ function renderAguagas() {
     html += '</tbody></table></div>';
   }
 
+  html += renderMovInternos('aguagas');
   div.innerHTML = html;
 }
 
@@ -6768,6 +7228,9 @@ function renderRopacama() {
   });
 
   html += '</tbody></table></div></div>';
+
+  // ── Movimientos Internos ──
+  html += renderMovInternos('ropacama');
   div.innerHTML = html;
 }
 
@@ -6831,12 +7294,54 @@ function ropacamaAbrirMovimiento() {
 // ══════════════════════════════════════════════════════════════════
 // HERRAMIENTAS Y MAQUINARIA
 // ══════════════════════════════════════════════════════════════════
-const HERR_AREAS = ['Taller', 'Metalurgia', 'Plomería', 'Electricidad', 'Campamento', 'Herramientas Vehículos'];
+const HERR_AREAS_DEFAULT = ['Taller', 'Metalurgia', 'Plomería', 'Electricidad', 'Campamento', 'Herramientas Vehículos'];
+
+// HERR_AREAS ahora es un getter dinámico: defaults + áreas personalizadas
+Object.defineProperty(window, 'HERR_AREAS', {
+  get: function() {
+    var custom = (state.herramientas && state.herramientas.areas) || [];
+    var all = HERR_AREAS_DEFAULT.slice();
+    custom.forEach(function(a){ if (all.indexOf(a) === -1) all.push(a); });
+    return all;
+  }
+});
+
+var _herrFiltroArea = '';  // filtro de área activo
 
 function herramientasInit() {
   if (!state.herramientas) state.herramientas = { items: [], controles: [] };
   if (!state.herramientas.items)     state.herramientas.items     = [];
   if (!state.herramientas.controles) state.herramientas.controles = [];
+  if (!state.herramientas.areas)     state.herramientas.areas     = [];
+}
+
+function herramientasAgregarArea() {
+  herramientasInit();
+  var nombre = prompt('Nombre de la nueva área de herramientas:');
+  if (!nombre || !nombre.trim()) return;
+  nombre = toTitleCase(nombre.trim());
+  if (HERR_AREAS.indexOf(nombre) !== -1) { toast('Esa área ya existe', 'error'); return; }
+  state.herramientas.areas.push(nombre);
+  save();
+  renderHerramientas();
+  toast('Área "' + nombre + '" creada', 'success');
+}
+
+function herramientasEliminarArea(area) {
+  if (HERR_AREAS_DEFAULT.indexOf(area) !== -1) { toast('No se pueden eliminar las áreas predefinidas', 'error'); return; }
+  var enUso = (state.herramientas.items || []).filter(function(i){ return i.area === area; }).length;
+  if (enUso > 0) { toast('El área tiene ' + enUso + ' herramienta(s). Reasignalas primero.', 'error'); return; }
+  if (!confirm('¿Eliminar el área "' + area + '"?')) return;
+  state.herramientas.areas = (state.herramientas.areas || []).filter(function(a){ return a !== area; });
+  if (_herrFiltroArea === area) _herrFiltroArea = '';
+  save();
+  renderHerramientas();
+  toast('Área eliminada', 'info');
+}
+
+function herrFiltrarPorArea(area) {
+  _herrFiltroArea = (_herrFiltroArea === area) ? '' : area;
+  renderHerramientas();
 }
 
 function renderHerramientas() {
@@ -6848,9 +7353,27 @@ function renderHerramientas() {
   // Cajas de herramientas (sub-depósitos marcados) y sus artículos
   var cajas = (state.depositos || []).filter(function(d){ return d.esCajaHerramientas; });
 
-  // Group by area
-  var html = '';
+  // ── Barra de filtros por área ──
+  var html = '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:18px;align-items:center">';
+  html += '<button class="herr-area-btn' + (_herrFiltroArea==='' ? ' activo' : '') + '" onclick="herrFiltrarPorArea(\'\')">Todas</button>';
   HERR_AREAS.forEach(function(area) {
+    var esVeh = (area === 'Herramientas Vehículos');
+    var cnt = items.filter(function(i){ return i.area === area; }).length;
+    if (esVeh) {
+      cnt += cajas.reduce(function(s,caja){
+        return s + (state.articulos||[]).filter(function(a){ return (a.stock&&a.stock[caja.id])>0; }).length;
+      }, 0);
+    }
+    html += '<button class="herr-area-btn' + (esVeh ? ' vehiculos' : '') + (_herrFiltroArea===area ? ' activo' : '') + '" ' +
+      'onclick="herrFiltrarPorArea(\'' + area.replace(/'/g,"\\'") + '\')">' +
+      (esVeh ? '🧰 ' : '') + area + ' <span style="opacity:.6">(' + cnt + ')</span></button>';
+  });
+  html += '<button class="herr-area-btn edit-only" style="border-style:dashed" onclick="herramientasAgregarArea()">+ Agregar área</button>';
+  html += '</div>';
+
+  // Group by area
+  HERR_AREAS.forEach(function(area) {
+    if (_herrFiltroArea && area !== _herrFiltroArea) return;  // filtro activo
     var areaItems = items.filter(function(i){ return i.area === area; });
     var esVehiculos = (area === 'Herramientas Vehículos');
 
@@ -6875,7 +7398,10 @@ function renderHerramientas() {
            'color:var(--accent);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border);' +
            'display:flex;align-items:center;justify-content:space-between">' +
       '<span>' + (esVehiculos ? '🧰 ' : '') + area + ' <span style="color:var(--text3);font-weight:400">(' + totalCount + ')</span></span>' +
-      '<button class="btn btn-secondary btn-sm edit-only" onclick="herramientasAbrirNueva(\'' + area + '\')" style="font-size:11px">+ Agregar</button>' +
+      '<span style="display:flex;gap:6px">' +
+      (HERR_AREAS_DEFAULT.indexOf(area) === -1 ? '<button class="btn btn-danger btn-sm edit-only" onclick="herramientasEliminarArea(\'' + area.replace(/'/g,"\\'") + '\')" style="font-size:11px;padding:3px 8px" title="Eliminar área">🗑</button>' : '') +
+      '<button class="btn btn-secondary btn-sm edit-only" onclick="herramientasAbrirNueva(\'' + area.replace(/'/g,"\\'") + '\')" style="font-size:11px">+ Agregar</button>' +
+      '</span>' +
       '</div>';
 
     if (!areaItems.length && !cajaRows.length) {
