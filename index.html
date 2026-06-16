@@ -600,10 +600,15 @@
 
     <!-- ===== DASHBOARD ===== -->
     <div id="panel-dashboard" class="panel active">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;flex-wrap:wrap;gap:8px">
         <div>
           <div class="page-title">Dashboard General</div>
           <div class="page-sub">Resumen en tiempo real · <span style="color:var(--accent)">Arrastrá los paneles para reorganizarlos</span></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-secondary btn-sm reader-ok" onclick="exportarRespaldo()" title="Descargar un respaldo de todos los datos">⬇ Exportar respaldo</button>
+          <button class="btn btn-secondary btn-sm edit-only" onclick="document.getElementById('importarRespaldoInput').click()" title="Cargar datos desde un archivo de respaldo">⬆ Importar respaldo</button>
+          <input type="file" id="importarRespaldoInput" accept=".json,application/json" style="display:none" onchange="importarRespaldo(this)">
         </div>
       </div>
 
@@ -5219,6 +5224,9 @@ function renderStockGlobal() {
 
   let html = '';
   let totalShown = 0;
+  if (!_stockSecAbiertas) _stockSecAbiertas = {};
+  // Con búsqueda o filtro activo, abrir todas las secciones automáticamente
+  const forzarAbiertas = !!(q || tipoFilt);
 
   secciones.forEach(function(sec) {
     if (secFilt && secFilt !== sec.key) return;
@@ -5229,11 +5237,20 @@ function renderStockGlobal() {
     if (!items.length) return;
     totalShown += items.length;
 
-    html += '<div style="margin-bottom:24px">' +
-      '<div style="font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;' +
-        'color:var(--accent);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)">' +
-        sec.label + ' <span style="color:var(--text3);font-weight:400">(' + items.length + ')</span>' +
+    const abierta = forzarAbiertas || (_stockSecAbiertas[sec.key] === true);
+    const flecha = abierta ? '▼' : '▶';
+
+    html += '<div style="margin-bottom:14px;border:1px solid var(--border);border-radius:10px;overflow:hidden">' +
+      '<div onclick="toggleStockSec(\'' + sec.key + '\')" ' +
+        'style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;' +
+        'padding:12px 16px;background:var(--bg3);user-select:none">' +
+        '<div style="font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--accent)">' +
+          '<span style="display:inline-block;width:16px;color:var(--text3)">' + flecha + '</span> ' +
+          sec.label + ' <span style="color:var(--text3);font-weight:400">(' + items.length + ')</span>' +
+        '</div>' +
       '</div>';
+
+    if (!abierta) { html += '</div>'; return; }
 
     html += '<div style="overflow-x:auto"><table class="tbl"><thead><tr>' +
       '<th>Artículo</th><th style="text-align:center;width:90px">Stock</th>' +
@@ -5305,6 +5322,13 @@ function renderStockGlobal() {
   actualizarReservasBadge();
 }
 
+var _stockSecAbiertas = {};
+function toggleStockSec(secKey) {
+  if (!_stockSecAbiertas) _stockSecAbiertas = {};
+  _stockSecAbiertas[secKey] = !_stockSecAbiertas[secKey];
+  renderStockGlobal();
+}
+
 // ── Tipo de stock: 'stock' (reservable) o 'patrimonial' ──
 // Por defecto: artículos/insumos/agua = stock; herramientas/indumentaria/epp = patrimonial
 function stockTipoDe(itemKey, secKey) {
@@ -5342,107 +5366,176 @@ function movInternosInit() {
   if (!state.movInternos.aguagas)  state.movInternos.aguagas  = [];
 }
 
+var _movIntAbierto = { ropacama: false, aguagas: false };
+
+function toggleMovInt(sector) {
+  _movIntAbierto[sector] = !_movIntAbierto[sector];
+  if (sector === 'ropacama') renderRopacama(); else renderAguagas();
+}
+
 function renderMovInternos(sector) {
   movInternosInit();
   var movs = (state.movInternos[sector] || []).slice().reverse();
   var titulo = sector === 'ropacama' ? '🧺 Movimientos Internos — Ropa de Cama' : '🚚 Movimientos Internos — Agua y Gas';
-  var sub = 'Registro de dónde se encuentra cada artículo de este sector';
+  var abierto = _movIntAbierto[sector] === true;
+  var flecha = abierto ? '▼' : '▶';
 
-  var html = '<div class="card" style="margin-top:24px">' +
-    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">' +
-      '<div><div style="font-size:13px;font-weight:700;color:var(--accent)">' + titulo + '</div>' +
-      '<div style="font-size:11px;color:var(--text3)">' + sub + '</div></div>' +
-      '<button class="btn btn-primary btn-sm edit-only" onclick="abrirMovInterno(\'' + sector + '\')">+ Registrar movimiento</button>' +
+  var html = '<div style="margin-top:24px;border:1px solid var(--border);border-radius:10px;overflow:hidden">' +
+    '<div onclick="toggleMovInt(\'' + sector + '\')" style="cursor:pointer;display:flex;justify-content:space-between;' +
+      'align-items:center;padding:12px 16px;background:var(--bg3);user-select:none;flex-wrap:wrap;gap:8px">' +
+      '<div style="font-size:13px;font-weight:700;color:var(--accent)">' +
+        '<span style="display:inline-block;width:16px;color:var(--text3)">' + flecha + '</span> ' + titulo +
+        ' <span style="color:var(--text3);font-weight:400">(' + movs.length + ')</span></div>' +
+      (abierto ? '<button class="btn btn-primary btn-sm edit-only" onclick="event.stopPropagation();abrirMovInterno(\'' + sector + '\')">+ Registrar movimientos</button>' : '') +
     '</div>';
 
-  if (!movs.length) {
-    html += '<div style="color:var(--text3);font-size:12px;padding:8px 0;font-style:italic">Sin movimientos registrados</div>';
-  } else {
-    html += '<div style="overflow-x:auto"><table class="tbl"><thead><tr>' +
-      '<th>Artículo</th><th style="text-align:center">Cant.</th><th>Desde</th><th>Hacia</th><th>Justificación</th><th>Fecha</th><th class="edit-only"></th>' +
-      '</tr></thead><tbody>';
-    movs.forEach(function(m) {
-      html += '<tr>' +
-        '<td style="font-weight:600">' + m.itemNombre + '</td>' +
-        '<td style="text-align:center;font-family:\'Barlow Condensed\',sans-serif;font-size:16px;font-weight:700">' + m.cantidad + '</td>' +
-        '<td style="font-size:12px">' + (m.desde || '—') + '</td>' +
-        '<td style="font-size:12px"><span style="color:var(--accent)">📍 ' + (m.hacia || '—') + '</span></td>' +
-        '<td style="font-size:11px;color:var(--text3)">' + (m.justif || '—') + '</td>' +
-        '<td style="font-size:11px;color:var(--text2)">' + (m.fecha || '') + '</td>' +
-        '<td class="edit-only"><button class="btn btn-danger btn-sm" onclick="eliminarMovInterno(\'' + sector + '\',\'' + m.id + '\')" style="padding:3px 8px">🗑</button></td>' +
-        '</tr>';
-    });
-    html += '</tbody></table></div>';
+  if (abierto) {
+    html += '<div style="padding:14px 16px">';
+    if (!movs.length) {
+      html += '<div style="color:var(--text3);font-size:12px;padding:8px 0;font-style:italic">Sin movimientos registrados</div>';
+    } else {
+      html += '<div style="overflow-x:auto"><table class="tbl"><thead><tr>' +
+        '<th>Artículo</th><th style="text-align:center">Cant.</th><th>Desde</th><th>Hacia</th><th>Justificación</th><th>Fecha</th><th class="edit-only"></th>' +
+        '</tr></thead><tbody>';
+      movs.forEach(function(m) {
+        html += '<tr>' +
+          '<td style="font-weight:600">' + m.itemNombre + '</td>' +
+          '<td style="text-align:center;font-family:\'Barlow Condensed\',sans-serif;font-size:16px;font-weight:700">' + m.cantidad + '</td>' +
+          '<td style="font-size:12px">' + (m.desde || '—') + '</td>' +
+          '<td style="font-size:12px"><span style="color:var(--accent)">📍 ' + (m.hacia || '—') + '</span></td>' +
+          '<td style="font-size:11px;color:var(--text3)">' + (m.justif || '—') + '</td>' +
+          '<td style="font-size:11px;color:var(--text2)">' + (m.fecha || '') + '</td>' +
+          '<td class="edit-only"><button class="btn btn-danger btn-sm" onclick="eliminarMovInterno(\'' + sector + '\',\'' + m.id + '\')" style="padding:3px 8px">🗑</button></td>' +
+          '</tr>';
+      });
+      html += '</tbody></table></div>';
+    }
+    html += '</div>';
   }
   html += '</div>';
   return html;
 }
 
+var _miFilas = [];   // filas del registro masivo
+var _miSector = '';
+
 function abrirMovInterno(sector) {
   movInternosInit();
+  _miSector = sector;
+  _miFilas = [{ item:'', cant:1 }];   // empieza con una fila
   var ubics = MOV_UBICACIONES[sector] || [];
-  // Lista de artículos del sector
-  var itemsArr = sector === 'ropacama'
-    ? (state.ropacama.items || []).map(function(i){ return i.nombre; })
-    : (state.aguagas.items || []).map(function(i){ return i.nombre; });
-  var itemOpts = itemsArr.map(function(n){ return '<option value="' + n + '">' + n + '</option>'; }).join('');
   var ubicOpts = ubics.map(function(u){ return '<option value="' + u + '">' + u + '</option>'; }).join('');
 
   var modal = '<div class="modal-overlay open" id="modalMovInt" style="z-index:10400">' +
-    '<div class="modal" style="max-width:460px">' +
-      '<div class="modal-header">Registrar Movimiento Interno' +
+    '<div class="modal" style="max-width:600px">' +
+      '<div class="modal-header">Registrar Movimientos — ' + (sector==='ropacama'?'Ropa de Cama':'Agua y Gas') +
         '<button class="close-btn" onclick="closeModal(\'modalMovInt\')">✕</button></div>' +
       '<div class="modal-body">' +
-        '<div class="form-group"><label class="form-label">Artículo *</label>' +
-          '<select class="form-control" id="miItem"><option value="">— Seleccioná —</option>' + itemOpts + '</select></div>' +
+        '<p style="font-size:12px;color:var(--text3);margin-bottom:12px">Todos estos artículos se mueven al mismo destino. Agregá tantas filas como necesites.</p>' +
         '<div class="form-row">' +
-          '<div class="form-group"><label class="form-label">Cantidad *</label>' +
-            '<input type="number" class="form-control" id="miCant" value="1" min="1"></div>' +
           '<div class="form-group"><label class="form-label">Desde</label>' +
             '<select class="form-control" id="miDesde"><option value="">—</option>' + ubicOpts + '</select></div>' +
+          '<div class="form-group"><label class="form-label">Hacia (destino) *</label>' +
+            '<select class="form-control" id="miHacia" onchange="miToggleJustif()"><option value="">— Seleccioná —</option>' + ubicOpts + '</select></div>' +
         '</div>' +
-        '<div class="form-group"><label class="form-label">Hacia (ubicación actual) *</label>' +
-          '<select class="form-control" id="miHacia" onchange="miToggleJustif(\'' + sector + '\')"><option value="">— Seleccioná —</option>' + ubicOpts + '</select></div>' +
         '<div class="form-group" id="miJustifWrap" style="display:none"><label class="form-label">Justificación *</label>' +
           '<input type="text" class="form-control" id="miJustif" placeholder="Detallá el destino / motivo"></div>' +
+        '<div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--accent);margin:14px 0 8px">Artículos a mover</div>' +
+        '<div id="miFilasWrap"></div>' +
+        '<button class="btn btn-secondary btn-sm" onclick="miAgregarFila()" style="margin-top:8px">+ Agregar fila</button>' +
       '</div>' +
       '<div class="modal-footer">' +
         '<button class="btn btn-secondary" onclick="closeModal(\'modalMovInt\')">Cancelar</button>' +
-        '<button class="btn btn-primary" onclick="guardarMovInterno(\'' + sector + '\')">Registrar</button>' +
+        '<button class="btn btn-primary" onclick="guardarMovInterno()">Registrar movimientos</button>' +
       '</div>' +
     '</div></div>';
   var ex = document.getElementById('modalMovInt');
   if (ex) ex.remove();
   document.body.insertAdjacentHTML('beforeend', modal);
+  miRenderFilas();
 }
 
-// Mostrar justificación si destino requiere (Otro siempre; Campamento Móvil en aguagas)
-function miToggleJustif(sector) {
+function miItemOpts() {
+  var arr = _miSector === 'ropacama'
+    ? (state.ropacama.items || []).map(function(i){ return i.nombre; })
+    : (state.aguagas.items || []).map(function(i){ return i.nombre; });
+  return '<option value="">— Seleccioná —</option>' + arr.map(function(n){ return '<option value="' + n + '">' + n + '</option>'; }).join('');
+}
+
+function miRenderFilas() {
+  var wrap = document.getElementById('miFilasWrap');
+  if (!wrap) return;
+  var opts = miItemOpts();
+  var html = '';
+  _miFilas.forEach(function(f, i) {
+    html += '<div style="display:flex;gap:8px;margin-bottom:8px;align-items:center">' +
+      '<select class="form-control mi-fila-item" data-i="' + i + '" style="flex:1">' + opts + '</select>' +
+      '<input type="number" class="form-control mi-fila-cant" data-i="' + i + '" value="' + (f.cant||1) + '" min="1" style="width:90px;text-align:center">' +
+      (_miFilas.length > 1 ? '<button class="btn btn-danger btn-sm" onclick="miQuitarFila(' + i + ')" style="padding:4px 9px">✕</button>' : '<span style="width:32px"></span>') +
+      '</div>';
+  });
+  wrap.innerHTML = html;
+  // Restaurar valores seleccionados
+  _miFilas.forEach(function(f, i) {
+    var sel = wrap.querySelector('.mi-fila-item[data-i="' + i + '"]');
+    if (sel && f.item) sel.value = f.item;
+  });
+}
+
+function miLeerFilas() {
+  var wrap = document.getElementById('miFilasWrap');
+  if (!wrap) return;
+  wrap.querySelectorAll('.mi-fila-item').forEach(function(sel) {
+    var i = parseInt(sel.dataset.i);
+    if (_miFilas[i]) _miFilas[i].item = sel.value;
+  });
+  wrap.querySelectorAll('.mi-fila-cant').forEach(function(inp) {
+    var i = parseInt(inp.dataset.i);
+    if (_miFilas[i]) _miFilas[i].cant = parseInt(inp.value) || 1;
+  });
+}
+
+function miAgregarFila() {
+  miLeerFilas();
+  _miFilas.push({ item:'', cant:1 });
+  miRenderFilas();
+}
+
+function miQuitarFila(i) {
+  miLeerFilas();
+  _miFilas.splice(i, 1);
+  if (!_miFilas.length) _miFilas.push({ item:'', cant:1 });
+  miRenderFilas();
+}
+
+function miToggleJustif() {
   var hacia = document.getElementById('miHacia').value;
-  var requiere = (hacia === 'Otro') || (sector === 'aguagas' && hacia === 'Campamento Móvil');
+  var requiere = (hacia === 'Otro') || (_miSector === 'aguagas' && hacia === 'Campamento Móvil');
   document.getElementById('miJustifWrap').style.display = requiere ? 'block' : 'none';
 }
 
-function guardarMovInterno(sector) {
+function guardarMovInterno() {
   movInternosInit();
-  var item = document.getElementById('miItem').value;
-  var cant = parseInt(document.getElementById('miCant').value) || 0;
+  miLeerFilas();
+  var sector = _miSector;
   var desde = document.getElementById('miDesde').value;
   var hacia = document.getElementById('miHacia').value;
   var justif = (document.getElementById('miJustif').value || '').trim();
-  if (!item) { toast('Seleccioná un artículo', 'error'); return; }
-  if (cant <= 0) { toast('Cantidad inválida', 'error'); return; }
   if (!hacia) { toast('Seleccioná la ubicación destino', 'error'); return; }
   var requiere = (hacia === 'Otro') || (sector === 'aguagas' && hacia === 'Campamento Móvil');
   if (requiere && !justif) { toast('La justificación es obligatoria para "' + hacia + '"', 'error'); return; }
-  state.movInternos[sector].push({
-    id: genId(), itemNombre: item, cantidad: cant, desde: desde, hacia: hacia,
-    justif: justif, fecha: now(), operador: 'Editor',
+  var validas = _miFilas.filter(function(f){ return f.item && f.cant > 0; });
+  if (!validas.length) { toast('Agregá al menos un artículo con cantidad', 'error'); return; }
+  validas.forEach(function(f) {
+    state.movInternos[sector].push({
+      id: genId(), itemNombre: f.item, cantidad: f.cant, desde: desde, hacia: hacia,
+      justif: justif, fecha: now(), operador: 'Editor',
+    });
   });
   save();
   closeModal('modalMovInt');
   if (sector === 'ropacama') renderRopacama(); else renderAguagas();
-  toast('Movimiento registrado', 'success');
+  toast(validas.length + ' movimiento(s) registrado(s)', 'success');
 }
 
 function eliminarMovInterno(sector, movId) {
@@ -5452,6 +5545,104 @@ function eliminarMovInterno(sector, movId) {
   save();
   if (sector === 'ropacama') renderRopacama(); else renderAguagas();
   toast('Movimiento eliminado', 'info');
+}
+
+
+
+// ══════════════════════════════════════════════════════════════════
+// EXPORTAR / IMPORTAR RESPALDO
+// ══════════════════════════════════════════════════════════════════
+
+function exportarRespaldo() {
+  try {
+    // Asegura que el state actual esté guardado en localStorage
+    if (typeof _saveLocal === 'function') _saveLocal();
+    var data = localStorage.getItem('nielsen_inventario');
+    if (!data) { data = JSON.stringify(state); }
+    // Validar que sea JSON correcto
+    JSON.parse(data);
+    var blob = new Blob([data], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    var d = new Date();
+    var fecha = d.getFullYear() + '-' +
+      String(d.getMonth()+1).padStart(2,'0') + '-' +
+      String(d.getDate()).padStart(2,'0') + '_' +
+      String(d.getHours()).padStart(2,'0') + String(d.getMinutes()).padStart(2,'0');
+    a.href = url;
+    a.download = 'respaldo_nielsen_' + fecha + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+    toast('Respaldo descargado correctamente', 'success');
+  } catch (e) {
+    toast('Error al exportar: ' + e.message, 'error');
+    console.error('exportarRespaldo:', e);
+  }
+}
+
+function importarRespaldo(input) {
+  var file = input.files && input.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    var txt = ev.target.result;
+    var parsed;
+    try {
+      parsed = JSON.parse(txt);
+    } catch (e) {
+      toast('El archivo no es un respaldo válido', 'error');
+      input.value = '';
+      return;
+    }
+    // Validación mínima de estructura
+    if (!parsed || typeof parsed !== 'object' || !('depositos' in parsed || 'articulos' in parsed)) {
+      toast('El archivo no parece un respaldo de Nielsen Inventario', 'error');
+      input.value = '';
+      return;
+    }
+    var nDep = (parsed.depositos || []).length;
+    var nArt = (parsed.articulos || []).length;
+    var msg = '¿Importar este respaldo?\n\n' +
+      '• ' + nDep + ' depósito(s)\n' +
+      '• ' + nArt + ' artículo(s)\n\n' +
+      'ATENCIÓN: esto REEMPLAZA todos los datos actuales de este dispositivo.\n' +
+      'Se hará una copia de seguridad de los datos actuales por las dudas.';
+    if (!confirm(msg)) { input.value = ''; return; }
+
+    try {
+      // Copia de seguridad de lo actual antes de reemplazar
+      var actual = localStorage.getItem('nielsen_inventario');
+      if (actual) localStorage.setItem('nielsen_inventario_backup_' + Date.now(), actual);
+
+      localStorage.setItem('nielsen_inventario', txt);
+      localStorage.setItem('nielsen_inventario_ts', Date.now().toString());
+
+      // Recargar el estado en memoria y re-renderizar
+      state = parsed;
+      if (typeof initData === 'function') initData();
+      if (typeof renderSidebar === 'function') renderSidebar();
+      if (typeof renderDashboard === 'function') renderDashboard();
+      var activo = document.querySelector('.panel.active');
+      if (activo && typeof renderPanel === 'function') {
+        try { renderPanel(activo.id.replace('panel-','')); } catch(e){}
+      }
+      // Subir a la nube si está configurado
+      if (typeof supabasePush === 'function') { try { supabasePush(); } catch(e){} }
+
+      toast('Respaldo importado: ' + nDep + ' depósitos, ' + nArt + ' artículos', 'success');
+    } catch (e) {
+      toast('Error al importar: ' + e.message, 'error');
+      console.error('importarRespaldo:', e);
+    }
+    input.value = '';
+  };
+  reader.onerror = function() {
+    toast('No se pudo leer el archivo', 'error');
+    input.value = '';
+  };
+  reader.readAsText(file);
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -8437,6 +8628,13 @@ function insumosInit() {
   if (!state.insumos.movimientos) state.insumos.movimientos = [];
 }
 
+var _insumoFiltroArea = '';
+
+function insumoFiltrarPorArea(areaId) {
+  _insumoFiltroArea = (_insumoFiltroArea === areaId) ? '' : areaId;
+  renderInsumos();
+}
+
 function renderInsumos() {
   insumosInit();
   var el = document.getElementById('insumosContent');
@@ -8476,7 +8674,18 @@ function renderInsumos() {
     '<button class="btn btn-secondary edit-only" style="align-self:center;margin-left:auto" onclick="insumosAgregarArea()">+ Nueva Área</button>' +
   '</div>';
 
+  // ── Barra de filtros por área (estilo Herramientas) ──
+  html += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:18px;align-items:center">';
+  html += '<button class="herr-area-btn' + (_insumoFiltroArea==='' ? ' activo' : '') + '" onclick="insumoFiltrarPorArea(\'\')">Todas</button>';
+  areas.forEach(function(area) {
+    var cnt = items.filter(function(i){ return i.areaId === area.id; }).length;
+    html += '<button class="herr-area-btn' + (_insumoFiltroArea===area.id ? ' activo' : '') + '" ' +
+      'onclick="insumoFiltrarPorArea(\'' + area.id + '\')">' + area.nombre + ' <span style="opacity:.6">(' + cnt + ')</span></button>';
+  });
+  html += '</div>';
+
   areas.forEach(function(area, ai) {
+    if (_insumoFiltroArea && area.id !== _insumoFiltroArea) return;  // filtro activo
     var color     = area.color || AREA_COLORS[ai % AREA_COLORS.length];
     var areaItems = items.filter(function(i){ return i.areaId === area.id; });
 
@@ -8487,6 +8696,7 @@ function renderInsumos() {
         '<span>' + area.nombre + ' <span style="color:var(--text3);font-weight:400">(' + areaItems.length + ')</span></span>' +
         '<div class="edit-only" style="display:flex;gap:6px">' +
           '<button class="btn btn-secondary btn-sm" onclick="insumosAgregarItem(\'' + area.id + '\')" style="font-size:11px">+ Insumo</button>' +
+          '<button class="btn btn-primary btn-sm" onclick="insumosAbrirCarga(\'' + area.id + '\')" style="font-size:11px">📋 Carga masiva</button>' +
           '<button class="btn btn-danger btn-sm" onclick="insumosEliminarArea(\'' + area.id + '\')" style="font-size:10px;padding:2px 7px">🗑</button>' +
         '</div>' +
       '</div>';
@@ -8540,6 +8750,106 @@ function insumosEliminarArea(areaId) {
   state.insumos.items  = state.insumos.items.filter(function(i){ return i.areaId !== areaId; });
   save(); renderInsumos(); toast('Área eliminada', 'info');
 }
+
+
+// ── Carga masiva de insumos por área ──
+function insumosAbrirCarga(areaId) {
+  insumosInit();
+  var area = state.insumos.areas.find(function(a){ return a.id === areaId; });
+  if (!area) return;
+  var modal = '<div class="modal-overlay open" id="modalInsumoBulk" style="z-index:10400">' +
+    '<div class="modal" style="max-width:580px">' +
+      '<div class="modal-header">📋 Carga Masiva — ' + area.nombre +
+        '<button class="close-btn" onclick="closeModal(\'modalInsumoBulk\')">✕</button></div>' +
+      '<div class="modal-body">' +
+        '<p style="font-size:12px;color:var(--text3);margin-bottom:10px">Pegá una lista de insumos, uno por línea. Formatos aceptados:<br>' +
+        '<code style="font-size:11px;color:var(--accent)">Nombre, Cantidad, Unidad</code><br>' +
+        '<code style="font-size:11px;color:var(--accent)">Cantidad x Nombre</code><br>' +
+        '<code style="font-size:11px;color:var(--accent)">Nombre</code> (cantidad 0)</p>' +
+        '<textarea class="form-control" id="insumoBulkText" rows="9" placeholder="Ej:&#10;Guantes de nitrilo, 50, pares&#10;Trapo rejilla, 30, unid&#10;10 x Detergente industrial&#10;Bolsas de residuo" style="font-family:monospace;font-size:12px;resize:vertical"></textarea>' +
+        '<div id="insumoBulkPreview" style="margin-top:12px"></div>' +
+      '</div>' +
+      '<div class="modal-footer">' +
+        '<button class="btn btn-secondary" onclick="closeModal(\'modalInsumoBulk\')">Cancelar</button>' +
+        '<button class="btn btn-secondary" onclick="insumoBulkVistaPrevia(\'' + areaId + '\')">👁 Vista previa</button>' +
+        '<button class="btn btn-primary" onclick="insumoBulkConfirmar(\'' + areaId + '\')">Importar</button>' +
+      '</div>' +
+    '</div></div>';
+  var ex = document.getElementById('modalInsumoBulk');
+  if (ex) ex.remove();
+  document.body.insertAdjacentHTML('beforeend', modal);
+}
+
+function insumoBulkParse(text) {
+  var items = [];
+  text.split('\n').forEach(function(line) {
+    line = line.trim();
+    if (!line) return;
+    var nombre = '', cant = 0, unidad = 'unid';
+    // "Cantidad x Nombre"
+    var m = line.match(/^(\d+)\s*[xX\*]\s*(.+)$/);
+    if (m) { cant = parseInt(m[1]); nombre = m[2]; }
+    else if (line.indexOf(',') !== -1) {
+      // "Nombre, Cantidad, Unidad"
+      var parts = line.split(',').map(function(p){ return p.trim(); });
+      nombre = parts[0];
+      if (parts[1] !== undefined && !isNaN(parseInt(parts[1]))) cant = parseInt(parts[1]);
+      if (parts[2]) unidad = parts[2];
+    } else {
+      // "Cantidad Nombre" o solo "Nombre"
+      var m2 = line.match(/^(\d+)\s+(.+)$/);
+      if (m2) { cant = parseInt(m2[1]); nombre = m2[2]; }
+      else nombre = line;
+    }
+    nombre = toTitleCase(nombre.trim());
+    if (nombre) items.push({ nombre: nombre, cant: cant, unidad: unidad });
+  });
+  return items;
+}
+
+function insumoBulkVistaPrevia(areaId) {
+  var text = document.getElementById('insumoBulkText').value;
+  var items = insumoBulkParse(text);
+  var prev = document.getElementById('insumoBulkPreview');
+  if (!items.length) { prev.innerHTML = '<p style="color:var(--text3);font-size:12px">No se detectaron insumos.</p>'; return; }
+  var h = '<div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--accent);margin-bottom:6px">' + items.length + ' insumos detectados</div>';
+  h += '<div style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:8px">';
+  items.forEach(function(it){
+    h += '<div style="display:flex;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--border);font-size:13px">' +
+      '<span>' + it.nombre + '</span><span style="color:var(--accent);font-weight:700">' + it.cant + ' ' + it.unidad + '</span></div>';
+  });
+  h += '</div>';
+  prev.innerHTML = h;
+}
+
+function insumoBulkConfirmar(areaId) {
+  insumosInit();
+  var text = document.getElementById('insumoBulkText').value;
+  var items = insumoBulkParse(text);
+  if (!items.length) { toast('No se detectaron insumos', 'error'); return; }
+  var nuevos = 0, actualizados = 0;
+  items.forEach(function(it){
+    // Buscar existente por nombre dentro de la misma área
+    var ex = state.insumos.items.find(function(x){
+      return x.areaId === areaId && x.nombre.toLowerCase() === it.nombre.toLowerCase();
+    });
+    if (ex) {
+      ex.stock = (ex.stock || 0) + it.cant;
+      actualizados++;
+    } else {
+      state.insumos.items.push({
+        id: genId(), nombre: it.nombre, areaId: areaId,
+        unidad: it.unidad || 'unid', stock: it.cant || 0, min: 1, descripcion: '',
+      });
+      nuevos++;
+    }
+  });
+  save();
+  closeModal('modalInsumoBulk');
+  renderInsumos();
+  toast(nuevos + ' nuevos, ' + actualizados + ' actualizados', 'success');
+}
+
 
 function insumosAgregarItem(areaId) {
   insumosInit();
