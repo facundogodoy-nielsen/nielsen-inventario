@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
 <title>Nielsen Logística — Control de Inventario</title>
 <!-- QR + Barcode libraries -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -584,6 +584,8 @@
 </div>
 
 <div class="app">
+  <!-- BACKDROP móvil -->
+  <div class="sidebar-backdrop" onclick="closeSidebarMobile()"></div>
   <!-- SIDEBAR -->
   <nav class="sidebar" id="sidebarNav">
     <!-- Sections rendered by JS — drag to reorder -->
@@ -603,8 +605,6 @@
           <div class="page-title">Dashboard General</div>
           <div class="page-sub">Resumen en tiempo real · <span style="color:var(--accent)">Arrastrá los paneles para reorganizarlos</span></div>
         </div>
-        <button class="btn btn-secondary btn-sm" onclick="dashResetLayout()" title="Restaurar disposición original"
-          style="font-size:11px">↺ Restablecer</button>
       </div>
 
       <!-- Stats row — always on top, not draggable -->
@@ -1856,7 +1856,102 @@
 .remito-transporte{border:1px solid #999;padding:8px 12px;border-radius:3px;margin-bottom:8px}
 .remito-invalid{font-size:9px;color:#c0392b;font-weight:700;letter-spacing:1px;text-align:right}
 
-@media print{
+
+  /* ═══════════════════════════════════════════════════════════
+     RESPONSIVE — Tablet y Móvil
+     ═══════════════════════════════════════════════════════════ */
+
+  /* ── TABLET (≤ 1024px) ── */
+  @media (max-width: 1024px) {
+    .header { padding: 0 14px; }
+    .main { padding: 16px; }
+    .stats-row { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .sidebar { width: 200px; min-width: 200px; }
+  }
+
+  /* ── MÓVIL (≤ 768px) ── */
+  @media (max-width: 768px) {
+    .app { height: auto; min-height: calc(100vh - 56px); flex-direction: column; }
+
+    /* Sidebar pasa a overlay deslizable */
+    .sidebar {
+      position: fixed; top: 56px; left: 0; bottom: 0; z-index: 900;
+      width: 260px; min-width: 260px;
+      transform: translateX(-100%);
+      transition: transform .25s ease;
+      box-shadow: 4px 0 24px rgba(0,0,0,.4);
+    }
+    body:not(.sidebar-hidden) .sidebar { transform: translateX(0); }
+    /* En móvil el "hidden" default es oculto; toggle lo muestra */
+    body.sidebar-hidden .sidebar { transform: translateX(-100%); margin-left: 0; }
+
+    /* Overlay oscuro al abrir sidebar en móvil */
+    .sidebar-backdrop {
+      display: none; position: fixed; inset: 56px 0 0 0; z-index: 850;
+      background: rgba(0,0,0,.5);
+    }
+    body:not(.sidebar-hidden) .sidebar-backdrop { display: block; }
+
+    .main { padding: 12px; width: 100%; }
+    .header { height: 56px; padding: 0 10px; }
+
+    /* Título header más chico */
+    .header .logo-text-block > div:first-child { font-size: 18px !important; }
+    .header .logo-text-block > div:last-child { font-size: 8px !important; }
+    .logo-img { height: 30px !important; }
+
+    /* Stats en una columna */
+    .stats-row { grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px; }
+    .stat-card { padding: 12px !important; }
+    .stat-value { font-size: 26px !important; }
+
+    /* Títulos de página */
+    .page-title { font-size: 20px !important; }
+    .page-sub { font-size: 12px !important; }
+
+    /* Depósitos en una columna */
+    .depositos-grid { grid-template-columns: 1fr !important; }
+
+    /* Tablas con scroll horizontal */
+    table.tbl { min-width: 520px; }
+    .tbl-wrap, [style*="overflow-x:auto"] { -webkit-overflow-scrolling: touch; }
+
+    /* Modales casi pantalla completa */
+    .modal { max-width: 94vw !important; width: 94vw !important; margin: 0 auto; }
+    .modal-overlay { padding: 12px; align-items: flex-start; }
+    .modal-body { max-height: 70vh; overflow-y: auto; }
+
+    /* Forms en una columna */
+    .form-row { grid-template-columns: 1fr !important; }
+
+    /* Filtros depósito: scroll horizontal */
+    #depFiltroBar { overflow-x: auto; flex-wrap: nowrap !important; padding-bottom: 6px; -webkit-overflow-scrolling: touch; }
+    .dep-filtro-btn { white-space: nowrap; flex-shrink: 0; }
+
+    /* Botones de acción que se apilen bien */
+    .panel-actions, [style*="display:flex"][style*="gap"] { flex-wrap: wrap; }
+
+    /* Dashboard widgets: una columna, sin drag-resize raro */
+    #dashGrid { display: block !important; }
+    .dash-widget { width: 100% !important; margin-bottom: 12px; position: relative !important;
+                   left: auto !important; top: auto !important; }
+    .dash-widget-resize { display: none !important; }
+
+    /* Agua/gas y ropa de cama: botones +/- más tocables */
+    .ag-btn { width: 28px; height: 28px; font-size: 17px; }
+
+    /* Toast no se corta */
+    .toast { left: 12px !important; right: 12px !important; max-width: none !important; }
+  }
+
+  /* ── MÓVIL CHICO (≤ 420px) ── */
+  @media (max-width: 420px) {
+    .stats-row { grid-template-columns: 1fr; }
+    .header .logo-text-block > div:last-child { display: none; }
+    .badge { font-size: 9px; }
+  }
+
+  @media print{
   body > *{display:none!important}
   #remitoPreview{display:block!important}
   .remito-wrap{border:none;box-shadow:none;padding:12px}
@@ -2427,6 +2522,7 @@ function depIcono(tipo) {
 // PANEL NAVIGATION
 // ============================================================
 function showPanel(name) {
+  closeSidebarMobile();
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   // 'epp' shares the same panel as 'ropa'
   var panelName = (name === 'epp') ? 'ropa' : name;
@@ -2979,8 +3075,14 @@ function renderDepositos() {
   let html = '';
 
   GRUPOS.forEach(grupo => {
+    // Con filtro activo: solo renderizar el grupo que coincide con el tipo filtrado
+    if (filtro) {
+      const coincide = grupo.tipos.includes(filtro) || grupo.key === filtro;
+      if (!coincide) return;
+    }
     let deps;
     if (grupo.key === 'otro') {
+      if (filtro) return; // no mostrar "Otros" cuando hay filtro
       deps = allDeps.filter(d => !assigned.has(d.id));
     } else {
       deps = allDeps.filter(d => grupo.tipos.includes(d.tipo));
@@ -3240,22 +3342,57 @@ function renderDetalleDeposito() {
 function agregarSubDeposito(parentId) {
   const parent = state.depositos.find(x => x.id === parentId);
   if (!parent) return;
-  const nombre = prompt('Nombre del sub-depósito (estante, rack, zona, etc.):');
-  if (!nombre || !nombre.trim()) return;
+  // Modal con opción de marcar como Caja de Herramientas
+  const modal = '<div class="modal-overlay open" id="modalSubDep" style="z-index:10300">' +
+    '<div class="modal" style="max-width:440px">' +
+      '<div class="modal-header">📁 Nuevo Sub-depósito en ' + parent.nombre +
+        '<button class="close-btn" onclick="closeModal(\'modalSubDep\')">✕</button></div>' +
+      '<div class="modal-body">' +
+        '<div class="form-group">' +
+          '<label class="form-label">Nombre del sub-depósito *</label>' +
+          '<input type="text" class="form-control" id="subDepNombre" oninput="this.value=toTitleCase(this.value)" placeholder="Ej: Estante A, Caja de Herramientas, Rack 3">' +
+        '</div>' +
+        '<div class="form-group">' +
+          '<label class="form-label">Tipo de sub-depósito</label>' +
+          '<select class="form-control" id="subDepTipo">' +
+            '<option value="general">📦 Estante / Zona / Rack (general)</option>' +
+            '<option value="caja-herramientas">🧰 Caja de Herramientas (vehículo)</option>' +
+          '</select>' +
+          '<div style="font-size:11px;color:var(--text3);margin-top:6px">Las herramientas cargadas en una Caja de Herramientas aparecen también en Inventario › Herramientas › Herramientas Vehículos.</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="modal-footer">' +
+        '<button class="btn btn-secondary" onclick="closeModal(\'modalSubDep\')">Cancelar</button>' +
+        '<button class="btn btn-primary" onclick="subDepConfirmar(\'' + parentId + '\')">Crear</button>' +
+      '</div>' +
+    '</div></div>';
+  const ex = document.getElementById('modalSubDep');
+  if (ex) ex.remove();
+  document.body.insertAdjacentHTML('beforeend', modal);
+}
+
+function subDepConfirmar(parentId) {
+  const parent = state.depositos.find(x => x.id === parentId);
+  if (!parent) return;
+  const nombre = toTitleCase((document.getElementById('subDepNombre').value || '').trim());
+  if (!nombre) { toast('Ingresá el nombre del sub-depósito', 'error'); return; }
+  const tipoSub = document.getElementById('subDepTipo').value;
   const nuevo = {
     id: genId(),
-    nombre: toTitleCase(nombre.trim()),
+    nombre: nombre,
     tipo: parent.tipo,
     ubicacion: parent.nombre,
     descripcion: '',
     responsable: parent.responsable || '',
     parentId: parentId,
+    esCajaHerramientas: tipoSub === 'caja-herramientas',
   };
   state.depositos.push(nuevo);
   save();
+  closeModal('modalSubDep');
   renderDetalleDeposito();
   renderDepositos();
-  toast('Sub-depósito creado', 'success');
+  toast(nuevo.esCajaHerramientas ? 'Caja de Herramientas creada' : 'Sub-depósito creado', 'success');
 }
 
 // ── Agregar artículo a un depósito (crea/actualiza en state.articulos) ──
@@ -5387,7 +5524,21 @@ function sbResetLayout() {
 // ── Sidebar collapse toggle ───────────────────────────────────────
 function toggleSidebar() {
   document.body.classList.toggle('sidebar-hidden');
-  try { localStorage.setItem('nielsen_sidebar_hidden', document.body.classList.contains('sidebar-hidden') ? '1' : '0'); } catch(e){}
+  // No persistir en móvil (siempre arranca oculto)
+  if (window.innerWidth > 768) {
+    try { localStorage.setItem('nielsen_sidebar_hidden', document.body.classList.contains('sidebar-hidden') ? '1' : '0'); } catch(e){}
+  }
+}
+
+function closeSidebarMobile() {
+  if (window.innerWidth <= 768) document.body.classList.add('sidebar-hidden');
+}
+
+// En móvil el sidebar arranca oculto
+function initSidebarResponsive() {
+  if (window.innerWidth <= 768) {
+    document.body.classList.add('sidebar-hidden');
+  }
 }
 
 function renderSidebar() {
@@ -5564,6 +5715,7 @@ function sbItemDrop(e, targetPanelId, targetSecId) {
 
 initData();
 try { if (localStorage.getItem('nielsen_sidebar_hidden') === '1') document.body.classList.add('sidebar-hidden'); } catch(e){}
+initSidebarResponsive();
 renderSidebar();
 // Try to sync from Supabase on load (if configured)
 if (typeof supabasePull === 'function' && _sbSyncEnabled) {
@@ -6614,7 +6766,7 @@ function ropacamaAbrirMovimiento() {
 // ══════════════════════════════════════════════════════════════════
 // HERRAMIENTAS Y MAQUINARIA
 // ══════════════════════════════════════════════════════════════════
-const HERR_AREAS = ['Taller', 'Metalurgia', 'Plomería', 'Electricidad', 'Campamento'];
+const HERR_AREAS = ['Taller', 'Metalurgia', 'Plomería', 'Electricidad', 'Campamento', 'Herramientas Vehículos'];
 
 function herramientasInit() {
   if (!state.herramientas) state.herramientas = { items: [], controles: [] };
@@ -6628,19 +6780,40 @@ function renderHerramientas() {
   if (!el) return;
   var items = state.herramientas.items || [];
 
+  // Cajas de herramientas (sub-depósitos marcados) y sus artículos
+  var cajas = (state.depositos || []).filter(function(d){ return d.esCajaHerramientas; });
+
   // Group by area
   var html = '';
   HERR_AREAS.forEach(function(area) {
     var areaItems = items.filter(function(i){ return i.area === area; });
+    var esVehiculos = (area === 'Herramientas Vehículos');
+
+    // Para "Herramientas Vehículos": agregar artículos de las cajas de herramientas
+    var cajaRows = [];
+    if (esVehiculos) {
+      cajas.forEach(function(caja){
+        var parent = state.depositos.find(function(x){ return x.id === caja.parentId; });
+        (state.articulos || []).forEach(function(a){
+          var qty = (a.stock && a.stock[caja.id]) || 0;
+          if (qty > 0) {
+            cajaRows.push({ articulo:a, qty:qty, caja:caja, parent:parent });
+          }
+        });
+      });
+    }
+
+    var totalCount = areaItems.length + cajaRows.length;
+
     html += '<div style="margin-bottom:28px">' +
       '<div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;' +
            'color:var(--accent);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border);' +
            'display:flex;align-items:center;justify-content:space-between">' +
-      '<span>' + area + ' <span style="color:var(--text3);font-weight:400">(' + areaItems.length + ')</span></span>' +
+      '<span>' + (esVehiculos ? '🧰 ' : '') + area + ' <span style="color:var(--text3);font-weight:400">(' + totalCount + ')</span></span>' +
       '<button class="btn btn-secondary btn-sm edit-only" onclick="herramientasAbrirNueva(\'' + area + '\')" style="font-size:11px">+ Agregar</button>' +
       '</div>';
 
-    if (!areaItems.length) {
+    if (!areaItems.length && !cajaRows.length) {
       html += '<div style="color:var(--text3);font-size:12px;padding:8px 0;font-style:italic">Sin herramientas en esta área</div>';
     } else {
       html += '<div style="overflow-x:auto"><table class="tbl"><thead><tr>' +
@@ -6664,6 +6837,18 @@ function renderHerramientas() {
           '<button class="btn btn-secondary btn-sm" onclick="herramientasEditar(\'' + item.id + '\')">✏️</button>' +
           '<button class="btn btn-danger btn-sm" onclick="herramientasEliminar(\'' + item.id + '\')">🗑</button>' +
           '</div></td>' +
+          '</tr>';
+      });
+      // Filas de cajas de herramientas (solo en Herramientas Vehículos)
+      cajaRows.forEach(function(row) {
+        var ubic = (row.parent ? row.parent.nombre + ' › ' : '') + row.caja.nombre;
+        html += '<tr style="background:rgba(224,92,26,.05)">' +
+          '<td><div style="font-weight:600">' + row.articulo.nombre + '</div>' +
+          '<div style="font-size:11px;color:var(--accent)">🧰 ' + row.caja.nombre + '</div></td>' +
+          '<td style="text-align:center;font-family:\'Barlow Condensed\',sans-serif;font-size:22px;font-weight:700">' + row.qty + '</td>' +
+          '<td style="text-align:center"><span class="badge" style="background:var(--green2)18;color:var(--green2);border:1px solid var(--green2)40">✓ En caja</span></td>' +
+          '<td style="font-size:12px;color:var(--text2)">📍 ' + ubic + '</td>' +
+          '<td class="edit-only"><button class="btn btn-secondary btn-sm" onclick="verDetalleDeposito(\'' + row.caja.id + '\')" title="Ver caja">🔍</button></td>' +
           '</tr>';
       });
       html += '</tbody></table></div>';
