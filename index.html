@@ -544,7 +544,7 @@
 <!-- BADGES DE MODO -->
 <div style="margin-left:10px;display:flex;align-items:center">
   <span id="sbSyncStatus" style="font-size:10px;color:var(--text3);font-family:'Barlow Condensed',sans-serif;
-    letter-spacing:.5px;cursor:pointer" title="Estado de sincronización Supabase" onclick="supabasePull(function(got){if(got){renderPanel(document.querySelector('.panel.active').id.replace('panel-',''));toast('Datos actualizados desde la nube','success')}else{toast('Ya tenés la versión más reciente','info')}})">
+    letter-spacing:.5px;cursor:pointer" title="Tocá para sincronizar / ver estado" onclick="sbStatusClick()">
     ○ Sin Supabase
   </span>
 </div>
@@ -1376,7 +1376,7 @@
       <input type="hidden" id="depEditId">
       <div class="form-group">
         <label class="form-label">Nombre del Depósito *</label>
-        <input type="text" class="form-control" id="depNombre" placeholder="Ej: BASE SJ — Almacén Central">
+        <input type="text" class="form-control" id="depNombre" oninput="this.value=this.value.replace(/^\s+/,'')" placeholder="Ej: Base SJ — Almacén Central">
       </div>
       <div class="form-row">
         <div class="form-group">
@@ -2319,13 +2319,29 @@ function initData() {
       });
       state._ropacamaV2 = true;
     }
+    // ── One-time migration: corregir nombres en MAYÚSCULAS ──
+    if (!state._titleCaseV1 && typeof toTitleCase === 'function') {
+      function fixCaps(s) {
+        if (!s || typeof s !== 'string') return s;
+        // Solo corregir si está TODO en mayúsculas (con letras)
+        var letters = s.replace(/[^A-Za-zÁÉÍÓÚÑáéíóúñ]/g,'');
+        if (letters && letters === letters.toUpperCase()) return toTitleCase(s);
+        return s;
+      }
+      (state.depositos || []).forEach(function(d){ d.nombre = fixCaps(d.nombre); if(d.ubicacion) d.ubicacion = fixCaps(d.ubicacion); });
+      (state.articulos || []).forEach(function(a){ a.nombre = fixCaps(a.nombre); if(a.categoria) a.categoria = fixCaps(a.categoria); });
+      if (state.herramientas && state.herramientas.items) state.herramientas.items.forEach(function(h){ h.nombre = fixCaps(h.nombre); });
+      if (state.insumos && state.insumos.items) state.insumos.items.forEach(function(i){ i.nombre = fixCaps(i.nombre); });
+      if (state.ropa && state.ropa.prendas) state.ropa.prendas.forEach(function(p){ p.nombre = fixCaps(p.nombre); });
+      state._titleCaseV1 = true;
+    }
     return;
   }
 
   // Depósitos predeterminados
   state.depositos = [
-    { id: 'd1', nombre: 'BASE SJ — Almacén Central', tipo: 'almacen', ubicacion: 'BASE SJ', descripcion: 'Almacén principal en la base San José', responsable: 'Carlos M.' },
-    { id: 'd2', nombre: 'BASE SJ — Pañol Herramientas', tipo: 'almacen', ubicacion: 'BASE SJ', descripcion: 'Pañol de herramientas y equipos', responsable: 'Carlos M.' },
+    { id: 'd1', nombre: 'Base SJ — Almacén Central', tipo: 'almacen', ubicacion: 'Base SJ', descripcion: 'Almacén principal en la base San José', responsable: 'Carlos M.' },
+    { id: 'd2', nombre: 'Base SJ — Pañol Herramientas', tipo: 'almacen', ubicacion: 'Base SJ', descripcion: 'Pañol de herramientas y equipos', responsable: 'Carlos M.' },
     { id: 'd3', nombre: 'Campamento La Brea', tipo: 'campamento', ubicacion: 'La Brea — Alta Montaña', descripcion: 'Depósito en campamento de montaña', responsable: 'Rodolfo T.' },
     { id: 'd4', nombre: 'Camión Unidad 01 — F-4000', tipo: 'vehiculo', ubicacion: 'Flota', descripcion: 'Ford F-4000 — patente ABC123', responsable: 'Jorge P.' },
     { id: 'd5', nombre: 'Camión Unidad 02 — Iveco', tipo: 'vehiculo', ubicacion: 'Flota', descripcion: 'Iveco Daily — patente XYZ789', responsable: 'Miguel S.' },
@@ -2354,7 +2370,7 @@ function initData() {
   save();
 }
 
-function save() { localStorage.setItem('nielsen_inventario', JSON.stringify(state)); }
+function _saveLocal() { localStorage.setItem('nielsen_inventario', JSON.stringify(state)); }
 
 
 // ══════════════════════════════════════════════════════════════════
@@ -2376,8 +2392,9 @@ var _sbSyncTimer   = null;
 // ── Push state to Supabase ────────────────────────────────────────
 function supabasePush() {
   if (!_sbSyncEnabled) return;
-  // Debounce: wait 1.5s after last save before pushing
+  // Debounce: wait 1.2s after last save before pushing
   if (_sbSyncTimer) clearTimeout(_sbSyncTimer);
+  supabaseSetStatus('syncing');
   _sbSyncTimer = setTimeout(function() {
     _sbSyncTimer = null;
     var payload = JSON.stringify({
@@ -2385,27 +2402,36 @@ function supabasePush() {
       data: state,
       updated_at: new Date().toISOString(),
     });
-    fetch(SUPABASE_URL + '/rest/v1/inventario', {
+    // Upsert: POST con merge-duplicates resuelve por primary key (id)
+    fetch(SUPABASE_URL + '/rest/v1/inventario?on_conflict=id', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'apikey': SUPABASE_ANON_KEY,
         'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
-        'Prefer': 'resolution=merge-duplicates',
+        'Prefer': 'resolution=merge-duplicates,return=minimal',
       },
       body: payload,
     })
     .then(function(res) {
-      if (!res.ok) return res.text().then(function(t){ throw new Error(t); });
+      if (!res.ok) return res.text().then(function(t){ throw new Error('HTTP ' + res.status + ': ' + t); });
       supabaseSetStatus('synced');
+      _sbLastError = null;
     })
     .catch(function(err) {
-      console.warn('Supabase push failed:', err);
-      supabaseSetStatus('error');
+      console.warn('Supabase push falló:', err && err.message ? err.message : err);
+      _sbLastError = (err && err.message) ? err.message : String(err);
+      // Si la tabla no existe, indicarlo claramente
+      if (/relation .* does not exist/i.test(_sbLastError) || /404/.test(_sbLastError)) {
+        supabaseSetStatus('notable');
+      } else {
+        supabaseSetStatus('error');
+      }
     });
-    supabaseSetStatus('syncing');
-  }, 1500);
+  }, 1200);
 }
+
+var _sbLastError = null;
 
 // ── Pull state from Supabase ──────────────────────────────────────
 function supabasePull(onDone) {
@@ -2471,12 +2497,40 @@ function supabaseSetStatus(status) {
   el.style.color = colors[status] || 'var(--text3)';
 }
 
-// Override save() to also push to Supabase
-const _origSave = save;
+function sbStatusClick() {
+  if (!_sbSyncEnabled) { toast('Supabase no está configurado', 'info'); return; }
+  if (_sbLastError) {
+    var msg = _sbLastError;
+    if (/relation .* does not exist/i.test(msg) || /notable/.test(msg)) {
+      alert('Falta crear la tabla en Supabase.\n\nEntrá al SQL Editor de Supabase y ejecutá:\n\ncreate table if not exists inventario (\n  id text primary key,\n  data jsonb,\n  updated_at timestamptz default now()\n);\nalter table inventario enable row level security;\ncreate policy "allow all" on inventario for all using (true) with check (true);');
+    } else {
+      alert('Error de sincronización:\n\n' + msg + '\n\nLos datos están guardados localmente. Tocá OK para reintentar.');
+    }
+    // Reintentar push
+    try { supabasePush(); } catch(e) {}
+    return;
+  }
+  // Sin error: bajar versión de la nube
+  supabaseSetStatus('syncing');
+  supabasePull(function(got) {
+    if (got) {
+      var activo = document.querySelector('.panel.active');
+      if (activo) { try { renderPanel(activo.id.replace('panel-','')); } catch(e){} }
+      renderDashboard();
+      toast('Datos actualizados desde la nube', 'success');
+    } else {
+      // subir lo local por las dudas
+      try { supabasePush(); } catch(e) {}
+      toast('Sincronizado · tus datos están al día', 'info');
+    }
+  });
+}
+
+// save() persists locally and pushes to Supabase
 function save() {
-  _origSave();
+  _saveLocal();
   localStorage.setItem('nielsen_inventario_ts', Date.now().toString());
-  supabasePush();
+  try { supabasePush(); } catch(e) { console.warn('supabasePush error:', e); }
 }
 
 
@@ -3687,6 +3741,11 @@ function guardarDeposito() {
   } else {
     state.depositos.push({ id: genId(), ...data });
     toast('Depósito creado', 'success');
+    // Resetear filtro para que el nuevo depósito sea visible
+    _depFiltroActivo = '';
+    document.querySelectorAll('.dep-filtro-btn').forEach(function(btn) {
+      btn.classList.toggle('activo', btn.dataset.filtro === '');
+    });
   }
   save(); closeModal('modalDeposito'); renderDepositos(); renderDashboard();
 }
@@ -5722,12 +5781,18 @@ if (typeof supabasePull === 'function' && _sbSyncEnabled) {
   supabaseSetStatus('syncing');
   supabasePull(function(gotRemote) {
     if (gotRemote) {
-      // Re-run migrations on pulled data
+      // Remote era más nuevo: re-aplicar migraciones y re-render
       initData();
       renderSidebar();
+      var activo = document.querySelector('.panel.active');
+      if (activo) { var pn = activo.id.replace('panel-',''); try { renderPanel(pn); } catch(e){} }
       renderDashboard();
     } else {
+      // Local es igual o más nuevo: subir lo local para no perder nada
       supabaseSetStatus(SUPABASE_URL ? 'synced' : 'disabled');
+      if (state && state.depositos) {
+        try { supabasePush(); } catch(e) {}
+      }
     }
   });
 } else {
