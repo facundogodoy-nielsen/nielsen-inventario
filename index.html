@@ -2327,6 +2327,10 @@ function initData() {
   const saved = localStorage.getItem('nielsen_inventario');
   if (saved) {
     state = JSON.parse(saved);
+    // Sincronizar el contador de versión local con el state
+    var verGuardada = parseInt(localStorage.getItem('nielsen_inventario_ver') || '0') || 0;
+    if (!state._ver || state._ver < verGuardada) state._ver = verGuardada;
+    if (state._ver > verGuardada) localStorage.setItem('nielsen_inventario_ver', String(state._ver));
     // Migrate: ensure sub-states exist for older saves
     if (!state.ropa)              state.ropa              = { prendas:[], personal:[], entregas:[] };
     if (!state.ropa.prendas)      state.ropa.prendas      = [];
@@ -2442,6 +2446,8 @@ function supabasePush() {
   supabaseSetStatus('syncing');
   _sbSyncTimer = setTimeout(function() {
     _sbSyncTimer = null;
+    var verActual = parseInt(localStorage.getItem('nielsen_inventario_ver') || '0') || 0;
+    state._ver = verActual;
     var payload = JSON.stringify({
       id: SUPABASE_ROW_ID,
       data: state,
@@ -2473,7 +2479,7 @@ function supabasePush() {
         supabaseSetStatus('error');
       }
     });
-  }, 1200);
+  }, 800);
 }
 
 var _sbLastError = null;
@@ -2506,20 +2512,25 @@ function supabasePull(onDone) {
   .then(function(rows) {
     if (rows === null) return;  // already handled above
     if (rows && rows.length && rows[0].data) {
-      var remoteTime  = new Date(rows[0].updated_at).getTime();
-      var localTime   = parseInt(localStorage.getItem('nielsen_inventario_ts') || '0');
-      if (remoteTime > localTime) {
-        state = rows[0].data;
+      var remoteData = rows[0].data;
+      var remoteVer  = parseInt(remoteData._ver || '0') || 0;
+      var localVer   = parseInt(localStorage.getItem('nielsen_inventario_ver') || '0') || 0;
+      // Solo reemplazar lo local si la NUBE tiene una versión ESTRICTAMENTE mayor.
+      // Si son iguales o local es mayor, NO se toca lo local (evita pisar datos nuevos).
+      if (remoteVer > localVer) {
+        state = remoteData;
         localStorage.setItem('nielsen_inventario', JSON.stringify(state));
-        localStorage.setItem('nielsen_inventario_ts', remoteTime.toString());
+        localStorage.setItem('nielsen_inventario_ver', String(remoteVer));
+        localStorage.setItem('nielsen_inventario_ts', Date.now().toString());
         supabaseSetStatus('synced');
         if (onDone) onDone(true);
       } else {
+        // Local está al día o más nuevo
         supabaseSetStatus('synced');
         if (onDone) onDone(false);
       }
     } else {
-      // Table exists but no row yet — that's fine, push will create it
+      // Table exists but no row yet — push creará la fila
       supabaseSetStatus('synced');
       if (onDone) onDone(false);
     }
@@ -2573,7 +2584,11 @@ function sbStatusClick() {
 
 // save() persists locally and pushes to Supabase
 function save() {
+  // Incrementar versión local en cada guardado (más confiable que el reloj)
+  var ver = (parseInt(localStorage.getItem('nielsen_inventario_ver') || '0') || 0) + 1;
+  state._ver = ver;
   _saveLocal();
+  localStorage.setItem('nielsen_inventario_ver', String(ver));
   localStorage.setItem('nielsen_inventario_ts', Date.now().toString());
   try { supabasePush(); } catch(e) { console.warn('supabasePush error:', e); }
 }
@@ -5616,7 +5631,11 @@ function importarRespaldo(input) {
       var actual = localStorage.getItem('nielsen_inventario');
       if (actual) localStorage.setItem('nielsen_inventario_backup_' + Date.now(), actual);
 
-      localStorage.setItem('nielsen_inventario', txt);
+      // Bumpear versión MUY por encima para que este respaldo gane sobre la nube
+      var verAlta = (parseInt(localStorage.getItem('nielsen_inventario_ver') || '0') || 0) + 1000;
+      parsed._ver = verAlta;
+      localStorage.setItem('nielsen_inventario', JSON.stringify(parsed));
+      localStorage.setItem('nielsen_inventario_ver', String(verAlta));
       localStorage.setItem('nielsen_inventario_ts', Date.now().toString());
 
       // Recargar el estado en memoria y re-renderizar
