@@ -2555,18 +2555,25 @@ function supabaseSetStatus(status) {
 
 function sbStatusClick() {
   if (!_sbSyncEnabled) { toast('Supabase no está configurado', 'info'); return; }
+
+  // Si hay error de tabla/conexión, mostrar info sin pedir PIN (no es riesgoso)
   if (_sbLastError) {
     var msg = _sbLastError;
     if (/relation .* does not exist/i.test(msg) || /notable/.test(msg)) {
       alert('Falta crear la tabla en Supabase.\n\nEntrá al SQL Editor de Supabase y ejecutá:\n\ncreate table if not exists inventario (\n  id text primary key,\n  data jsonb,\n  updated_at timestamptz default now()\n);\nalter table inventario enable row level security;\ncreate policy "allow all" on inventario for all using (true) with check (true);');
     } else {
-      alert('Error de sincronización:\n\n' + msg + '\n\nLos datos están guardados localmente. Tocá OK para reintentar.');
+      alert('Error de sincronización:\n\n' + msg + '\n\nLos datos están guardados localmente.');
     }
-    // Reintentar push
     try { supabasePush(); } catch(e) {}
     return;
   }
-  // Sin error: bajar versión de la nube
+
+  // Sincronización manual: pedir PIN para evitar clics accidentales
+  var pin = prompt('Sincronización manual con la nube.\n\nIngresá el PIN para confirmar (o cancelá si fue sin querer):');
+  if (pin === null) return;            // canceló
+  if (pin !== PIN_ADMIN) { toast('PIN incorrecto · sincronización cancelada', 'error'); return; }
+
+  // PIN correcto: sincronizar
   supabaseSetStatus('syncing');
   supabasePull(function(got) {
     if (got) {
@@ -2575,7 +2582,6 @@ function sbStatusClick() {
       renderDashboard();
       toast('Datos actualizados desde la nube', 'success');
     } else {
-      // subir lo local por las dudas
       try { supabasePush(); } catch(e) {}
       toast('Sincronizado · tus datos están al día', 'info');
     }
@@ -9783,10 +9789,12 @@ function entregaAddItem() {
 }
 
 function entregaRenderItems() {
-  const list  = document.getElementById('entregaItemsList');
-  const empty = document.getElementById('entregaItemsEmpty');
-  empty.style.display = _entregaItems.length ? 'none' : '';
-  if (!_entregaItems.length) { list.innerHTML = ''; return; }
+  const list = document.getElementById('entregaItemsList');
+  if (!list) return;
+  if (!_entregaItems.length) {
+    list.innerHTML = '<div class="empty-state" style="padding:20px"><p>Agregá prendas usando el formulario de arriba</p></div>';
+    return;
+  }
   list.innerHTML = _entregaItems.map((it,i) => {
     const p = (state.ropa.prendas||[]).find(x=>x.id===it.prendaId);
     return `<div class="entrega-item-row">
