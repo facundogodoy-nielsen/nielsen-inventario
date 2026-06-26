@@ -2339,6 +2339,7 @@ function initData() {
     if (!state.aguagas)           state.aguagas           = { items:[], movimientos:[] };
     if (!state.aguagas.items)     state.aguagas.items     = [];
     if (!state.aguagas.movimientos) state.aguagas.movimientos = [];
+    if (!state.aguagas.campamentos) state.aguagas.campamentos = [];
     if (!state.ropacama)          state.ropacama          = { items:[], movimientos:[] };
     if (!state.ropacama.items)    state.ropacama.items    = [];
     if (!state.ropacama.movimientos) state.ropacama.movimientos = [];
@@ -3110,8 +3111,13 @@ function renderDashConsumo() {
   const cards = WATCH.map(function(w) {
     const item = state.aguagas.items.find(function(i){ return i.id === w.id; });
     if (!item) return '';
-    const e = item.estados || {};
-    const total = (e.enUso||0) + (e.lleno||0) + (e.vacio||0);
+    // Sumar todos los campamentos
+    var e = { enUso:0, lleno:0, vacio:0 };
+    var epc = item.estadosPorCamp || (item.estados ? {x:item.estados} : {});
+    Object.keys(epc).forEach(function(k){
+      e.enUso += (epc[k].enUso||0); e.lleno += (epc[k].lleno||0); e.vacio += (epc[k].vacio||0);
+    });
+    const total = e.enUso + e.lleno + e.vacio;
     const st = total <= 0 ? 'red' : total <= (item.min||0) ? 'yellow' : 'green';
     const stColor = st==='green'?'var(--green2)':st==='yellow'?'var(--yellow2)':'var(--red2)';
     let breakdown = '';
@@ -3561,6 +3567,14 @@ function depAgregarArticulo(depId) {
             '<input type="number" class="form-control" id="depAddArtMin" value="1" min="0">' +
           '</div>' +
         '</div>' +
+        '<div class="form-group">' +
+          '<label class="form-label">Clasificación</label>' +
+          '<select class="form-control" id="depAddArtTipo">' +
+            '<option value="stock">📦 Stock (reservable)</option>' +
+            '<option value="patrimonial">🏛 Patrimonial</option>' +
+          '</select>' +
+          '<div style="font-size:11px;color:var(--text3);margin-top:4px">Stock: se puede reservar para compras. Patrimonial: bien de la empresa, no reservable.</div>' +
+        '</div>' +
       '</div>' +
       '<div class="modal-footer">' +
         '<button class="btn btn-secondary" onclick="closeModal(\'modalDepAddArt\')">Cancelar</button>' +
@@ -3583,18 +3597,23 @@ function depAddArtConfirmar(depId) {
   const cant = parseInt(document.getElementById('depAddArtCant').value) || 0;
   if (cant <= 0) { toast('Ingresá una cantidad válida', 'error'); return; }
 
+  const tipoClasif = (document.getElementById('depAddArtTipo') || {value:'stock'}).value;
+  if (!state.stockTipos) state.stockTipos = {};
+  let artId;
   if (selId) {
     // Artículo existente: sumar stock en este depósito
     const art = state.articulos.find(a => a.id === selId);
     if (!art) return;
     art.stock[depId] = (art.stock[depId] || 0) + cant;
+    artId = art.id;
   } else {
     // Crear nuevo artículo
     const nombre = toTitleCase((document.getElementById('depAddArtNombre').value || '').trim());
     if (!nombre) { toast('Ingresá el nombre del artículo', 'error'); return; }
     const stock = {}; stock[depId] = cant;
+    artId = genId();
     state.articulos.push({
-      id: genId(),
+      id: artId,
       nombre,
       categoria: toTitleCase((document.getElementById('depAddArtCat').value || '').trim()),
       unidad: (document.getElementById('depAddArtUnidad').value || 'unidad').trim(),
@@ -3606,6 +3625,8 @@ function depAddArtConfirmar(depId) {
       codigoTipo: null,
     });
   }
+  // Guardar la clasificación Patrimonial/Stock
+  if (artId) state.stockTipos['art:' + artId] = tipoClasif;
   // Registrar movimiento de ingreso
   state.movimientos.push({
     id: genId(), tipo: 'ingreso', fecha: now(),
@@ -5192,34 +5213,33 @@ function renderStockGlobal() {
   });
   secciones.push({ key:'insumos', label:'🧴 Insumos', items: insItems });
 
-  // ── 5. Agua y Gas (con estados EN USO / LLENO / VACIO) ──
+  // ── 5. Agua y Gas (suma de todos los campamentos, detalle por campamento) ──
   const agItems = [];
+  const campsAg = (state.aguagas && state.aguagas.campamentos) || [];
   (state.aguagas && state.aguagas.items || []).forEach(function(it) {
-    const e = it.estados || { enUso:0, lleno:0, vacio:0 };
-    const total = (e.enUso||0) + (e.lleno||0) + (e.vacio||0);
+    const epc = it.estadosPorCamp || (it.estados ? { 'base-sj': it.estados } : {});
+    // Totales globales sumando campamentos
+    var totEnUso = 0, totLleno = 0, totVacio = 0;
     const ubic = [];
-    if (e.enUso > 0) ubic.push({ dep: 'En Uso', qty: e.enUso });
-    if (e.lleno > 0) ubic.push({ dep: 'Lleno', qty: e.lleno });
-    if (e.vacio > 0) ubic.push({ dep: 'Vacío', qty: e.vacio });
-    // If item uses estados, create separate stock global rows with label suffix
-    if (it.usaEstados) {
-      ['enUso','lleno','vacio'].forEach(function(est) {
-        const qty = e[est] || 0;
-        const label = { enUso:'En Uso', lleno:'Lleno', vacio:'Vacío' }[est];
-        agItems.push({
-          key: 'ag:' + it.id + ':' + est,
-          nombre: it.nombre + ' — ' + label, unidad: it.unidad || 'u',
-          total: qty, ubicaciones: qty > 0 ? [{ dep: label, qty: qty }] : [],
-          status: qty <= 0 ? 'red' : 'green',
-        });
-      });
-    } else {
-      agItems.push({
-        key: 'ag:' + it.id,
-        nombre: it.nombre, unidad: it.unidad || 'u', total: total,
-        ubicaciones: ubic, status: total <= 0 ? 'red' : (total <= (it.min||0) ? 'yellow' : 'green'),
-      });
-    }
+    Object.keys(epc).forEach(function(campId) {
+      const e = epc[campId] || {};
+      const campNom = (campsAg.find(function(c){ return c.id === campId; }) || {}).nombre || campId;
+      totEnUso += (e.enUso||0); totLleno += (e.lleno||0); totVacio += (e.vacio||0);
+      const subt = (e.enUso||0)+(e.lleno||0)+(e.vacio||0);
+      if (subt > 0) {
+        var detalle = [];
+        if (e.enUso>0) detalle.push('En Uso: '+e.enUso);
+        if (e.lleno>0) detalle.push('Lleno: '+e.lleno);
+        if (e.vacio>0) detalle.push('Vacío: '+e.vacio);
+        ubic.push({ dep: campNom + ' (' + detalle.join(', ') + ')', qty: subt });
+      }
+    });
+    const total = totEnUso + totLleno + totVacio;
+    agItems.push({
+      key: 'ag:' + it.id,
+      nombre: it.nombre, unidad: it.unidad || 'u', total: total,
+      ubicaciones: ubic, status: total <= 0 ? 'red' : (total <= (it.min||0) ? 'yellow' : 'green'),
+    });
   });
   secciones.push({ key:'aguagas', label:'💧 Agua y Gas', items: agItems });
 
@@ -5248,6 +5268,11 @@ function renderStockGlobal() {
   if (!_stockSecAbiertas) _stockSecAbiertas = {};
   // Con búsqueda o filtro activo, abrir todas las secciones automáticamente
   const forzarAbiertas = !!(q || tipoFilt);
+  // Primera vez: abrir todas las secciones que tienen items
+  if (!_stockSecInit) {
+    _stockSecInit = true;
+    secciones.forEach(function(s){ if (s.items && s.items.length) _stockSecAbiertas[s.key] = true; });
+  }
 
   secciones.forEach(function(sec) {
     if (secFilt && secFilt !== sec.key) return;
@@ -5344,6 +5369,7 @@ function renderStockGlobal() {
 }
 
 var _stockSecAbiertas = {};
+var _stockSecInit = false;
 function toggleStockSec(secKey) {
   if (!_stockSecAbiertas) _stockSecAbiertas = {};
   _stockSecAbiertas[secKey] = !_stockSecAbiertas[secKey];
@@ -5846,14 +5872,15 @@ function descontarStockPorReserva(r) {
   if (tipo === 'ag') {
     var ag = state.aguagas.items.find(function(x){ return x.id === id; });
     if (!ag) return false;
-    var estado = parts[2];  // enUso/lleno/vacio o undefined
-    if (estado && ag.estados) {
-      if ((ag.estados[estado]||0) < cant) return false;
-      ag.estados[estado] -= cant; return true;
-    } else if (ag.estados) {
-      // descontar de lleno por defecto
-      if ((ag.estados.lleno||0) < cant) return false;
-      ag.estados.lleno -= cant; return true;
+    // Descontar de Base SJ por defecto (o el primer campamento con stock)
+    var epc = ag.estadosPorCamp || {};
+    var campIds = Object.keys(epc);
+    if (!campIds.length) return false;
+    var estado = parts[2] || 'lleno';
+    // Buscar un campamento con stock suficiente en ese estado
+    for (var ci = 0; ci < campIds.length; ci++) {
+      var e = epc[campIds[ci]];
+      if ((e[estado]||0) >= cant) { e[estado] -= cant; return true; }
     }
     return false;
   }
@@ -7127,21 +7154,43 @@ function renderCampamentos() {
 // ══════════════════════════════════════════════════════════════════
 
 
+var _aguagasCampActivo = null;  // id del campamento (pestaña) activa
+
 function aguagasInit() {
+  // Campamentos (pestañas). Base SJ es fijo, siempre primero.
+  if (!state.aguagas.campamentos) state.aguagas.campamentos = [];
+  if (!state.aguagas.campamentos.find(function(c){ return c.id === 'base-sj'; })) {
+    state.aguagas.campamentos.unshift({ id: 'base-sj', nombre: 'Base SJ', fijo: true });
+  }
+  if (!state.aguagas.campamentos.find(function(c){ return c.id === 'la-brea'; })) {
+    state.aguagas.campamentos.push({ id: 'la-brea', nombre: 'Campamento La Brea' });
+  }
+
   if (!state.aguagas.items.length) {
     state.aguagas.items = AGUAGAS_DEFAULTS.map(i => ({
       id: i.id, nombre: i.nombre, tipo: i.tipo, unidad: i.unidad,
       usaEstados: i.usaEstados,
-      estados: { enUso: 0, lleno: 0, vacio: 0 },
+      estadosPorCamp: {},
       min: 5,
     }));
     save();
   }
-  // Migrate older items that used stock:{} model
+
+  // Migrar items: de estados globales → estadosPorCamp con todo en base-sj
   state.aguagas.items.forEach(function(it) {
-    if (!it.estados) {
-      var prev = it.stock ? Object.values(it.stock).reduce(function(s,v){return s+v;},0) : 0;
-      it.estados = { enUso: 0, lleno: prev, vacio: 0 };
+    if (!it.estadosPorCamp) {
+      it.estadosPorCamp = {};
+      // Migrar estados viejos a Base SJ
+      if (it.estados) {
+        it.estadosPorCamp['base-sj'] = {
+          enUso: it.estados.enUso || 0,
+          lleno: it.estados.lleno || 0,
+          vacio: it.estados.vacio || 0,
+        };
+      } else if (it.stock) {
+        var prev = Object.values(it.stock).reduce(function(s,v){return s+v;},0);
+        it.estadosPorCamp['base-sj'] = { enUso: 0, lleno: prev, vacio: 0 };
+      }
     }
     if (it.usaEstados === undefined) {
       var def = AGUAGAS_DEFAULTS.find(function(d){ return d.id === it.id; });
@@ -7149,6 +7198,50 @@ function aguagasInit() {
     }
     if (it.min === undefined) it.min = 5;
   });
+
+  // Campamento activo por defecto: Base SJ
+  if (!_aguagasCampActivo || !state.aguagas.campamentos.find(function(c){ return c.id === _aguagasCampActivo; })) {
+    _aguagasCampActivo = 'base-sj';
+  }
+}
+
+// Estados de un item en el campamento activo
+function agEstados(item, campId) {
+  campId = campId || _aguagasCampActivo;
+  if (!item.estadosPorCamp) item.estadosPorCamp = {};
+  if (!item.estadosPorCamp[campId]) item.estadosPorCamp[campId] = { enUso:0, lleno:0, vacio:0 };
+  return item.estadosPorCamp[campId];
+}
+
+function aguagasAgregarCampamento() {
+  var nombre = prompt('Nombre del nuevo campamento:');
+  if (!nombre || !nombre.trim()) return;
+  nombre = toTitleCase(nombre.trim());
+  state.aguagas.campamentos.push({ id: genId(), nombre: nombre });
+  save();
+  renderAguagas();
+  toast('Campamento "' + nombre + '" agregado', 'success');
+}
+
+function aguagasEliminarCampamento(campId) {
+  if (campId === 'base-sj') { toast('No se puede eliminar Base SJ', 'error'); return; }
+  var camp = state.aguagas.campamentos.find(function(c){ return c.id === campId; });
+  if (!camp) return;
+  if (!confirm('¿Eliminar el campamento "' + camp.nombre + '"?\nSe perderá su stock registrado.')) return;
+  state.aguagas.campamentos = state.aguagas.campamentos.filter(function(c){ return c.id !== campId; });
+  // Limpiar estados de ese campamento en todos los items
+  state.aguagas.items.forEach(function(it) {
+    if (it.estadosPorCamp) delete it.estadosPorCamp[campId];
+  });
+  if (_aguagasCampActivo === campId) _aguagasCampActivo = 'base-sj';
+  save();
+  renderAguagas();
+  toast('Campamento eliminado', 'info');
+}
+
+function aguagasSetCamp(campId) {
+  _aguagasCampActivo = campId;
+  renderAguagas();
 }
 
 function renderAguagas() {
@@ -7156,16 +7249,38 @@ function renderAguagas() {
   const div = document.getElementById('aguagasContent');
   if (!div) return;
   const items = state.aguagas.items || [];
-
-  // Stats
-  const totalAgua = items.filter(i => i.tipo === 'agua')
-    .reduce((s, i) => s + agTotalItem(i), 0);
-  const totalGas  = items.filter(i => i.tipo === 'gas')
-    .reduce((s, i) => s + agTotalItem(i), 0);
-  const criticos  = items.filter(i => agStatusItem(i) === 'critic').length;
-  const bajos     = items.filter(i => agStatusItem(i) === 'low').length;
+  const camps = state.aguagas.campamentos || [];
+  const campId = _aguagasCampActivo;
+  const campActivo = camps.find(function(c){ return c.id === campId; });
 
   let html = '';
+
+  // ── Pestañas de campamentos ──
+  html += '<div style="display:flex;align-items:center;gap:4px;margin-bottom:18px;border-bottom:2px solid var(--border);flex-wrap:wrap">';
+  camps.forEach(function(c) {
+    var activo = c.id === campId;
+    html += '<button onclick="aguagasSetCamp(\'' + c.id + '\')" ' +
+      'style="position:relative;padding:10px 18px;border:none;background:' + (activo ? 'var(--bg3)' : 'transparent') + ';' +
+      'color:' + (activo ? 'var(--accent)' : 'var(--text2)') + ';font-weight:' + (activo ? '700' : '500') + ';' +
+      'font-size:13px;cursor:pointer;border-radius:8px 8px 0 0;font-family:inherit;' +
+      'border-bottom:' + (activo ? '2px solid var(--accent)' : '2px solid transparent') + ';margin-bottom:-2px">' +
+      (c.id === 'base-sj' ? '🏢 ' : '⛺ ') + c.nombre +
+      (c.id !== 'base-sj' ? ' <span class="edit-only" onclick="event.stopPropagation();aguagasEliminarCampamento(\'' + c.id + '\')" style="margin-left:6px;color:var(--text3);font-size:11px" title="Eliminar campamento">✕</span>' : '') +
+      '</button>';
+  });
+  html += '<button class="edit-only" onclick="aguagasAgregarCampamento()" style="padding:8px 14px;border:1px dashed var(--border);background:transparent;color:var(--accent);font-size:12px;cursor:pointer;border-radius:8px;margin-left:8px;font-family:inherit">+ Agregar campamento</button>';
+  html += '</div>';
+
+  html += '<div style="font-size:12px;color:var(--text3);margin-bottom:14px">Stock de <strong style="color:var(--accent)">' + (campActivo ? campActivo.nombre : '') + '</strong></div>';
+
+  // Stats del campamento activo
+  const totalAgua = items.filter(i => i.tipo === 'agua')
+    .reduce((s, i) => s + agTotalItem(i, campId), 0);
+  const totalGas  = items.filter(i => i.tipo === 'gas')
+    .reduce((s, i) => s + agTotalItem(i, campId), 0);
+  const criticos  = items.filter(i => agStatusItem(i, campId) === 'critic').length;
+  const bajos     = items.filter(i => agStatusItem(i, campId) === 'low').length;
+
   html += '<div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap">' +
     '<div class="card" style="padding:12px 18px;display:flex;align-items:center;gap:12px">' +
       '<span style="font-size:26px">💧</span>' +
@@ -7198,9 +7313,9 @@ function renderAguagas() {
     '</tr></thead><tbody>';
 
   items.forEach(function(item) {
-    const e = item.estados || { enUso:0, lleno:0, vacio:0 };
-    const total = agTotalItem(item);
-    const st = agStatusItem(item);
+    const e = agEstados(item, campId);
+    const total = agTotalItem(item, campId);
+    const st = agStatusItem(item, campId);
     const stColor = st === 'ok' ? 'var(--green2)' : st === 'low' ? 'var(--yellow2)' : 'var(--red2)';
     const stLabel = st === 'ok' ? '✓ OK' : st === 'low' ? '⚠ Bajo' : '✗ Sin stock';
     const tipoIcon = item.tipo === 'agua' ? '💧' : '🔥';
@@ -7240,8 +7355,9 @@ function renderAguagas() {
       const estLabel = { enUso:'En Uso', lleno:'Lleno', vacio:'Vacío' }[m.estado] || m.estado || '—';
       const signo = m.delta > 0 ? '+' : '';
       const color = m.delta > 0 ? 'var(--green2)' : 'var(--red2)';
+      const campMov = (state.aguagas.campamentos || []).find(function(c){ return c.id === m.campId; });
       html += '<tr>' +
-        '<td style="font-size:11px;color:var(--text2)">' + m.fecha + '</td>' +
+        '<td style="font-size:11px;color:var(--text2)">' + m.fecha + (campMov ? '<br><span style="font-size:9px;color:var(--accent)">' + campMov.nombre + '</span>' : '') + '</td>' +
         '<td>' + (item ? item.nombre : '—') + '</td>' +
         '<td><span class="badge badge-gray">' + estLabel + '</span></td>' +
         '<td style="font-family:\'Barlow Condensed\',sans-serif;font-size:16px;font-weight:700;color:' + color + '">' + signo + m.delta + '</td>' +
@@ -7254,31 +7370,31 @@ function renderAguagas() {
   div.innerHTML = html;
 }
 
-// Total of an item across its estados
-function agTotalItem(item) {
-  const e = item.estados || {};
+// Total de un item en un campamento (o el activo)
+function agTotalItem(item, campId) {
+  const e = agEstados(item, campId);
   return (e.enUso || 0) + (e.lleno || 0) + (e.vacio || 0);
 }
 
-// Status based on total vs min
-function agStatusItem(item) {
-  const total = agTotalItem(item);
+// Status según total vs min (en el campamento)
+function agStatusItem(item, campId) {
+  const total = agTotalItem(item, campId);
   if (total <= 0) return 'critic';
   if (total <= (item.min || 0)) return 'low';
   return 'ok';
 }
 
-// Adjust a specific estado by delta (+1 / -1)
+// Ajustar un estado en el campamento activo (+1 / -1)
 function agAjustar(itemId, estado, delta) {
   const item = state.aguagas.items.find(function(i){ return i.id === itemId; });
   if (!item) return;
-  if (!item.estados) item.estados = { enUso:0, lleno:0, vacio:0 };
-  const cur = item.estados[estado] || 0;
+  const e = agEstados(item, _aguagasCampActivo);
+  const cur = e[estado] || 0;
   const next = Math.max(0, cur + delta);
   if (next === cur) return;
-  item.estados[estado] = next;
+  e[estado] = next;
   state.aguagas.movimientos.push({
-    id: genId(), fecha: now(), itemId: itemId, estado: estado, delta: delta,
+    id: genId(), fecha: now(), itemId: itemId, estado: estado, delta: delta, campId: _aguagasCampActivo,
   });
   save();
   renderAguagas();
@@ -7332,14 +7448,15 @@ function aguagasAbrirMovimiento() {
 function agGuardarNuevo() {
   const nombre = toTitleCase((document.getElementById('agNuevoNombre').value || '').trim());
   if (!nombre) { toast('Ingresá el nombre', 'error'); return; }
-  state.aguagas.items.push({
+  var nuevoItem = {
     id: genId(), nombre: nombre,
     tipo: document.getElementById('agNuevoTipo').value,
     unidad: (document.getElementById('agNuevoUnidad').value || 'unidades').trim(),
     usaEstados: true,
-    estados: { enUso:0, lleno:0, vacio:0 },
+    estadosPorCamp: {},
     min: parseInt(document.getElementById('agNuevoMin').value) || 0,
-  });
+  };
+  state.aguagas.items.push(nuevoItem);
   save();
   closeModal('modalAgNuevo');
   renderAguagas();
