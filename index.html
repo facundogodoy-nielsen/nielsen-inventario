@@ -837,7 +837,7 @@
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin:16px 0">
         <input type="text" class="form-control reader-ok" id="stockBuscar" placeholder="🔍 Buscar artículo..."
                oninput="renderStockGlobal()" style="flex:1;min-width:200px">
-        <select class="form-control reader-ok" id="stockSeccionFiltro" onchange="renderStockGlobal()" style="width:auto">
+        <select class="form-control reader-ok" id="stockSeccionFiltro" onchange="stockSeccionCambiada()" style="width:auto">
           <option value="">Todas las secciones</option>
           <option value="articulos">📦 Artículos</option>
           <option value="indumentaria">👕 Indumentaria Laboral</option>
@@ -846,6 +846,9 @@
           <option value="insumos">🧴 Insumos</option>
           <option value="aguagas">💧 Agua y Gas</option>
           <option value="ropacama">🛏 Ropa de Cama</option>
+        </select>
+        <select class="form-control reader-ok" id="stockSubseccionFiltro" onchange="renderStockGlobal()" style="width:auto;display:none">
+          <option value="">Todas las subsecciones</option>
         </select>
         <select class="form-control reader-ok" id="stockTipoFiltro" onchange="renderStockGlobal()" style="width:auto">
           <option value="">Todos los tipos</option>
@@ -1453,9 +1456,18 @@
           <input type="text" class="form-control" id="artUnidad" placeholder="Ej: unidad, kg, litros...">
         </div>
       </div>
-      <div class="form-group">
-        <label class="form-label">Depósito Inicial *</label>
-        <select class="form-control" id="artDeposito"></select>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Depósito Inicial *</label>
+          <select class="form-control" id="artDeposito"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Clasificación</label>
+          <select class="form-control" id="artTipoClasif">
+            <option value="stock">📦 Stock (reservable)</option>
+            <option value="patrimonial">🏛 Patrimonial</option>
+          </select>
+        </div>
       </div>
       <div class="form-row-3">
         <div class="form-group">
@@ -2357,11 +2369,12 @@ function initData() {
     // ── One-time migration: ropacama estados ──
     if (!state._ropacamaV2) {
       (state.ropacama.items || []).forEach(function(it) {
-        if (!it.estados) it.estados = { limpio: it.stock || 0, sucio: 0, descarte: 0 };
+        if (!it.estados && !it.estadosPorCamp) it.estados = { limpio: it.stock || 0, sucio: 0, descarte: 0 };
         if (it.min === undefined) it.min = 5;
       });
       state._ropacamaV2 = true;
     }
+    if (!state.ropacama.campamentos) state.ropacama.campamentos = [];
     // ── Nuevas estructuras (reservas, tipos de stock, mov internos) ──
     if (!state.reservas)     state.reservas     = [];
     if (!state.stockTipos)   state.stockTipos   = {};
@@ -3248,21 +3261,37 @@ function renderDepositos() {
 
 // ── Card inner (shared between depCardHTML and grouped view) ──────
 function depCardInner(d) {
-  const arts       = state.articulos.filter(a => (a.stock[d.id] || 0) > 0);
+  // Sub-depósitos
+  const subdeps   = state.depositos.filter(x => x.parentId === d.id);
+  const cajas     = subdeps.filter(s => s.esCajaHerramientas);
+  const idsContar = [d.id].concat(subdeps.map(s => s.id));
+  // Artículos en el depósito + sub-depósitos (sin duplicar)
+  const arts       = state.articulos.filter(a => idsContar.some(id => (a.stock[id] || 0) > 0));
   const criticos   = arts.filter(a => getStockStatus(a) === 'red').length;
   const bajos      = arts.filter(a => getStockStatus(a) === 'yellow').length;
   const statusColor = criticos > 0 ? 'var(--red2)' : bajos > 0 ? 'var(--yellow2)' : 'var(--green2)';
   const ico        = depIcono(d.tipo);
   const tipoLabel  = ({'almacen':'Almacén/General','campamento':'Campamento Móvil','vehiculo':'Vehículo/Flota',
     'oficina':'Oficina','deposito-sj':'Depósito Base SJ','deposito-labrea':'Depósito Camp. La Brea'}[d.tipo] || d.tipo);
+
+  // Badges
+  let badges = '';
+  if (subdeps.length) {
+    badges += '<span class="badge" style="background:rgba(74,159,216,.15);color:var(--blue2);border:1px solid rgba(74,159,216,.3);font-size:10px">📁 ' + subdeps.length + ' sub-dep.</span>';
+  }
+  if (cajas.length) {
+    badges += '<span class="badge" style="background:rgba(224,92,26,.15);color:var(--accent);border:1px solid rgba(224,92,26,.3);font-size:10px">🧰 ' + (cajas.length > 1 ? cajas.length + ' cajas' : 'Caja herram.') + '</span>';
+  }
+
   return '<div class="dep-header">' +
     '<div class="dep-icon ' + d.tipo + '">' + ico + '</div>' +
-    '<div><div class="dep-name">' + d.nombre + '</div>' +
+    '<div style="flex:1;min-width:0"><div class="dep-name">' + d.nombre + '</div>' +
     '<div class="dep-tipo">' + tipoLabel + (d.ubicacion ? ' · ' + d.ubicacion : '') + '</div></div>' +
     '<div class="dep-actions" onclick="event.stopPropagation()">' +
     '<button class="btn btn-secondary btn-sm btn-icon edit-only" onclick="editarDeposito(\'' + d.id + '\')">✏️</button>' +
     '<button class="btn btn-danger btn-sm btn-icon edit-only" onclick="eliminarDeposito(\'' + d.id + '\')">🗑</button>' +
     '</div></div>' +
+    (badges ? '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">' + badges + '</div>' : '') +
     '<div class="dep-stats">' +
     '<div class="dep-stat"><div class="dep-stat-val" style="color:var(--blue2)">' + arts.length + '</div><div class="dep-stat-lbl">Artículos</div></div>' +
     '<div class="dep-stat"><div class="dep-stat-val" style="color:var(--yellow2)">' + bajos + '</div><div class="dep-stat-lbl">Bajo Stock</div></div>' +
@@ -3335,18 +3364,40 @@ function depDragEnd(e) {
 }
 
 function depCardHTML(d, mini) {
-  const arts = state.articulos.filter(a => (a.stock[d.id] || 0) > 0);
-  const criticos = arts.filter(a => getStockStatus(a) === 'red').length;
-  const bajos = arts.filter(a => getStockStatus(a) === 'yellow').length;
+  // Sub-depósitos de este depósito
+  const subdeps = state.depositos.filter(x => x.parentId === d.id);
+  const subdepIds = subdeps.map(s => s.id);
+  const cajas = subdeps.filter(s => s.esCajaHerramientas);
+  // IDs a contar: el depósito + todos sus sub-depósitos
+  const idsContar = [d.id].concat(subdepIds);
+
+  // Artículos presentes en el depósito o cualquier sub-depósito (sin duplicar)
+  const artsSet = state.articulos.filter(a =>
+    idsContar.some(id => (a.stock[id] || 0) > 0)
+  );
+  const totalArts = artsSet.length;
+
+  // Bajo stock / crítico (según stock total del artículo)
+  const criticos = artsSet.filter(a => getStockStatus(a) === 'red').length;
+  const bajos = artsSet.filter(a => getStockStatus(a) === 'yellow').length;
   const statusColor = criticos > 0 ? 'var(--red2)' : bajos > 0 ? 'var(--yellow2)' : 'var(--green2)';
   const ico = depIcono(d.tipo);
   const tipoCls = d.tipo;
   const tipoLabel = ({'almacen':'Almacén/General','campamento':'Campamento Móvil','vehiculo':'Vehículo/Flota','oficina':'Oficina','deposito-sj':'Depósito Base SJ','deposito-labrea':'Depósito Camp. La Brea'}[d.tipo] || d.tipo);
 
+  // Badges extra
+  let badges = '';
+  if (subdeps.length) {
+    badges += `<span class="badge" style="background:rgba(74,159,216,.15);color:var(--blue2);border:1px solid rgba(74,159,216,.3);font-size:10px">📁 ${subdeps.length} sub-dep.</span>`;
+  }
+  if (cajas.length) {
+    badges += `<span class="badge" style="background:rgba(224,92,26,.15);color:var(--accent);border:1px solid rgba(224,92,26,.3);font-size:10px">🧰 ${cajas.length > 1 ? cajas.length + ' cajas' : 'Caja herram.'}</span>`;
+  }
+
   return `<div class="deposito-card" onclick="verDetalleDeposito('${d.id}')">
     <div class="dep-header">
       <div class="dep-icon ${tipoCls}">${ico}</div>
-      <div>
+      <div style="flex:1;min-width:0">
         <div class="dep-name">${d.nombre}</div>
         <div class="dep-tipo">${tipoLabel}${d.ubicacion ? ' · ' + d.ubicacion : ''}</div>
       </div>
@@ -3355,9 +3406,10 @@ function depCardHTML(d, mini) {
         <button class="btn btn-danger btn-sm btn-icon" title="Eliminar" onclick="eliminarDeposito('${d.id}')">🗑</button>
       </div>
     </div>
+    ${badges ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px 0">${badges}</div>` : ''}
     <div class="dep-stats">
       <div class="dep-stat">
-        <div class="dep-stat-val" style="color:var(--blue2)">${arts.length}</div>
+        <div class="dep-stat-val" style="color:var(--blue2)">${totalArts}</div>
         <div class="dep-stat-lbl">Artículos</div>
       </div>
       <div class="dep-stat">
@@ -3951,6 +4003,7 @@ function openModalArticulo() {
   document.getElementById('artCodigoTipo').value = 'qr';
   document.getElementById('artCodigoPreview').style.display = 'none';
   document.getElementById('artBtnVerCodigo').style.display = 'none';
+  var tipoSel = document.getElementById('artTipoClasif'); if (tipoSel) tipoSel.value = 'stock';
   document.getElementById('modalArtTitulo').textContent = 'Nuevo Artículo';
   poblarSelectDepositos('artDeposito');
   openModal('modalArticulo');
@@ -3970,6 +4023,8 @@ function editarArticulo(id) {
   document.getElementById('artCodigoTipo').value = a.codigoTipo || 'qr';
   document.getElementById('artCodigoPreview').style.display = 'none';
   document.getElementById('artBtnVerCodigo').style.display = a.codigo ? '' : 'none';
+  var tipoSel = document.getElementById('artTipoClasif');
+  if (tipoSel) tipoSel.value = (state.stockTipos && state.stockTipos['art:' + a.id]) || 'stock';
   document.getElementById('modalArtTitulo').textContent = 'Editar Artículo';
   poblarSelectDepositos('artDeposito');
   openModal('modalArticulo');
@@ -3991,6 +4046,9 @@ function guardarArticulo() {
     if (dup) { toast(`Código ya asignado a: ${dup.nombre}`, 'error'); return; }
   }
 
+  const tipoClasif = (document.getElementById('artTipoClasif') || {value:'stock'}).value;
+  if (!state.stockTipos) state.stockTipos = {};
+
   if (id) {
     const idx = state.articulos.findIndex(x => x.id === id);
     state.articulos[idx] = {
@@ -4002,12 +4060,14 @@ function guardarArticulo() {
       descripcion: document.getElementById('artDescripcion').value,
       codigo: codigo || null, codigoTipo,
     };
+    state.stockTipos['art:' + id] = tipoClasif;
     toast('Artículo actualizado', 'success');
   } else {
     const stock = {};
     if (depId && cantidad > 0) stock[depId] = cantidad;
+    const nuevoId = genId();
     state.articulos.push({
-      id: genId(), nombre,
+      id: nuevoId, nombre,
       categoria: document.getElementById('artCategoria').value,
       unidad: document.getElementById('artUnidad').value,
       stock,
@@ -4016,8 +4076,9 @@ function guardarArticulo() {
       descripcion: document.getElementById('artDescripcion').value,
       codigo: codigo || null, codigoTipo,
     });
+    state.stockTipos['art:' + nuevoId] = tipoClasif;
     if (depId && cantidad > 0) {
-      state.movimientos.push({ id:genId(), tipo:'ingreso', fecha:now(), artId:state.articulos[state.articulos.length-1].id, depId, cantidad, motivo:'Alta inicial', operador:'Sistema' });
+      state.movimientos.push({ id:genId(), tipo:'ingreso', fecha:now(), artId:nuevoId, depId, cantidad, motivo:'Alta inicial', operador:'Sistema' });
     }
     toast('Artículo creado', 'success');
   }
@@ -5164,6 +5225,7 @@ function renderStockGlobal() {
   const arts = (state.articulos || []).map(function(a) {
     return {
       key: 'art:' + a.id,
+      subseccion: a.categoria || 'Sin categoría',
       nombre: a.nombre, unidad: a.unidad || 'u',
       total: getStockTotal(a),
       ubicaciones: Object.entries(a.stock || {}).filter(function(e){ return e[1] > 0; })
@@ -5186,7 +5248,7 @@ function renderStockGlobal() {
         total += st;
         if (st > 0) ubic.push({ dep: 'Talle ' + talla, qty: st });
       });
-      return { key: grupo + ':' + p.id, nombre: p.nombre, unidad: 'u', total: total, ubicaciones: ubic,
+      return { key: grupo + ':' + p.id, subseccion: p.categoria || 'Sin categoría', nombre: p.nombre, unidad: 'u', total: total, ubicaciones: ubic,
                status: total <= 0 ? 'red' : 'green' };
     });
     secciones.push({
@@ -5198,7 +5260,7 @@ function renderStockGlobal() {
 
   // ── 3. Herramientas ──
   const herrItems = (state.herramientas && state.herramientas.items || []).map(function(h) {
-    return { key: 'herr:' + h.id, nombre: h.nombre, unidad: h.unidad || 'u', total: h.cantidad || 0,
+    return { key: 'herr:' + h.id, subseccion: h.area || 'Sin área', nombre: h.nombre, unidad: h.unidad || 'u', total: h.cantidad || 0,
              ubicaciones: [{ dep: h.area || 'Sin área', qty: h.cantidad || 0 }],
              status: (h.cantidad||0) <= 0 ? 'red' : 'green' };
   });
@@ -5207,7 +5269,7 @@ function renderStockGlobal() {
   // ── 4. Insumos ──
   const insItems = (state.insumos && state.insumos.items || []).map(function(i) {
     const area = (state.insumos.areas || []).find(function(a){ return a.id === i.areaId; });
-    return { key: 'ins:' + i.id, nombre: i.nombre, unidad: i.unidad || 'u', total: i.stock || 0,
+    return { key: 'ins:' + i.id, subseccion: area ? area.nombre : 'Sin área', nombre: i.nombre, unidad: i.unidad || 'u', total: i.stock || 0,
              ubicaciones: [{ dep: area ? area.nombre : 'Sin área', qty: i.stock || 0 }],
              status: (i.stock||0) <= 0 ? 'red' : (i.stock <= (i.min||1) ? 'yellow' : 'green') };
   });
@@ -5237,23 +5299,36 @@ function renderStockGlobal() {
     const total = totEnUso + totLleno + totVacio;
     agItems.push({
       key: 'ag:' + it.id,
+      subseccion: it.tipo === 'gas' ? '🔥 Gas' : '💧 Agua',
       nombre: it.nombre, unidad: it.unidad || 'u', total: total,
       ubicaciones: ubic, status: total <= 0 ? 'red' : (total <= (it.min||0) ? 'yellow' : 'green'),
     });
   });
   secciones.push({ key:'aguagas', label:'💧 Agua y Gas', items: agItems });
 
-  // ── 6. Ropa de Cama (LIMPIO / SUCIO / DESCARTE) ──
+  // ── 6. Ropa de Cama (suma de todos los campamentos) ──
+  const campsRc = (state.ropacama && state.ropacama.campamentos) || [];
   const rcItems = (state.ropacama && state.ropacama.items || []).map(function(it) {
-    const e = it.estados || { limpio:0, sucio:0, descarte:0 };
-    const total = (e.limpio||0) + (e.sucio||0) + (e.descarte||0);
+    const epc = it.estadosPorCamp || (it.estados ? { 'base-sj': it.estados } : {});
+    var totLimpio = 0, totSucio = 0, totDescarte = 0;
     const ubic = [];
-    if (e.limpio > 0)   ubic.push({ dep: 'Limpio', qty: e.limpio });
-    if (e.sucio > 0)    ubic.push({ dep: 'Sucio', qty: e.sucio });
-    if (e.descarte > 0) ubic.push({ dep: 'Descarte', qty: e.descarte });
+    Object.keys(epc).forEach(function(cid) {
+      const e = epc[cid] || {};
+      const campNom = (campsRc.find(function(c){ return c.id === cid; }) || {}).nombre || cid;
+      totLimpio += (e.limpio||0); totSucio += (e.sucio||0); totDescarte += (e.descarte||0);
+      const subt = (e.limpio||0)+(e.sucio||0)+(e.descarte||0);
+      if (subt > 0) {
+        var detalle = [];
+        if (e.limpio>0)   detalle.push('Limpio: '+e.limpio);
+        if (e.sucio>0)    detalle.push('Sucio: '+e.sucio);
+        if (e.descarte>0) detalle.push('Descarte: '+e.descarte);
+        ubic.push({ dep: campNom + ' (' + detalle.join(', ') + ')', qty: subt });
+      }
+    });
+    const total = totLimpio + totSucio + totDescarte;
     return { key: 'rc:' + it.id, nombre: it.nombre, unidad: 'u', total: total,
              ubicaciones: ubic,
-             status: (e.limpio||0) <= 0 ? 'red' : ((e.limpio||0) <= (it.min||1) ? 'yellow' : 'green') };
+             status: totLimpio <= 0 ? 'red' : (totLimpio <= (it.min||1) ? 'yellow' : 'green') };
   });
   secciones.push({ key:'ropacama', label:'🛏 Ropa de Cama', items: rcItems });
 
@@ -5274,12 +5349,16 @@ function renderStockGlobal() {
     secciones.forEach(function(s){ if (s.items && s.items.length) _stockSecAbiertas[s.key] = true; });
   }
 
+  // Filtro de subsección (solo aplica cuando hay una sección seleccionada)
+  const subFilt = (document.getElementById('stockSubseccionFiltro') || {value:''}).value;
+
   secciones.forEach(function(sec) {
     if (secFilt && secFilt !== sec.key) return;
     let items = sec.items;
     if (q) items = items.filter(function(it){ return it.nombre.toLowerCase().includes(q); });
-    // Filtro por tipo
     if (tipoFilt) items = items.filter(function(it){ return stockTipoDe(it.key, sec.key) === tipoFilt; });
+    // Filtro por subsección (si hay sección seleccionada)
+    if (secFilt && subFilt) items = items.filter(function(it){ return (it.subseccion || 'Sin categoría') === subFilt; });
     if (!items.length) return;
     totalShown += items.length;
 
@@ -5298,65 +5377,47 @@ function renderStockGlobal() {
 
     if (!abierta) { html += '</div>'; return; }
 
-    html += '<div style="overflow-x:auto"><table class="tbl"><thead><tr>' +
-      '<th>Artículo</th><th style="text-align:center;width:90px">Stock</th>' +
-      '<th style="text-align:center;width:80px">Estado</th>' +
-      '<th style="text-align:center;width:120px">Tipo</th>' +
-      '<th style="text-align:right;width:170px"></th>' +
-      '</tr></thead><tbody>';
-
-    items.sort(function(a,b){ return a.nombre.localeCompare(b.nombre, 'es'); }).forEach(function(it, i) {
-      const stColor = it.status === 'green' ? 'var(--green2)' : it.status === 'yellow' ? 'var(--yellow2)' : 'var(--red2)';
-      const stLabel = it.status === 'green' ? 'OK' : it.status === 'yellow' ? 'Bajo' : 'Sin stock';
-      const rowId = 'stkrow-' + sec.key + '-' + i;
-      const ubicJson = encodeURIComponent(JSON.stringify(it.ubicaciones));
-      const tipo = stockTipoDe(it.key, sec.key);
-      const esStock = (tipo === 'stock');
-      const reservado = reservasActivasDe(it.key);
-      const disponible = Math.max(0, it.total - reservado);
-
-      // Celda Tipo
-      let tipoCell;
-      if (isReader) {
-        tipoCell = esStock
-          ? '<span class="badge" style="background:var(--blue2)18;color:var(--blue2);border:1px solid var(--blue2)40">📦 Stock</span>'
-          : '<span class="badge" style="background:var(--yellow2)18;color:var(--yellow2);border:1px solid var(--yellow2)40">🏛 Patrimonial</span>';
-      } else {
-        tipoCell = '<select class="form-control" style="font-size:11px;padding:3px 6px;width:120px" ' +
-          'onchange="stockSetTipo(\'' + it.key + '\', this.value)">' +
-          '<option value="stock"' + (esStock?' selected':'') + '>📦 Stock</option>' +
-          '<option value="patrimonial"' + (!esStock?' selected':'') + '>🏛 Patrimonial</option>' +
-          '</select>';
-      }
-
-      // Botón reservar (solo si es Stock y hay disponible)
-      let reservarBtn = '';
-      if (esStock) {
-        reservarBtn = '<button class="btn btn-primary btn-sm reader-ok" ' +
-          (disponible <= 0 ? 'disabled style="opacity:.4"' : '') +
-          ' onclick="abrirReservaArticulo(\'' + it.key + '\',\'' + it.nombre.replace(/[\'\\\\]/g,'') + '\',' + disponible + ',\'' + it.unidad + '\')">🛒 Reservar</button>';
-      }
-
-      html += '<tr>' +
-        '<td><strong>' + it.nombre + '</strong>' +
-          (reservado > 0 ? '<div style="font-size:10px;color:var(--yellow2)">' + reservado + ' reservado(s) · ' + disponible + ' disp.</div>' : '') +
-        '</td>' +
-        '<td style="text-align:center">' +
-          '<span style="font-family:\'Barlow Condensed\',sans-serif;font-size:20px;font-weight:700">' + it.total + '</span>' +
-          '<span style="color:var(--text3);font-size:11px"> ' + it.unidad + '</span></td>' +
-        '<td style="text-align:center"><span class="badge" style="background:' + stColor + '18;color:' + stColor + ';border:1px solid ' + stColor + '40">' + stLabel + '</span></td>' +
-        '<td style="text-align:center">' + tipoCell + '</td>' +
-        '<td style="text-align:right"><div style="display:flex;gap:5px;justify-content:flex-end;flex-wrap:wrap">' +
-          reservarBtn +
-          '<button class="btn btn-secondary btn-sm reader-ok" onclick="stockConsultar(this,\'' + ubicJson + '\',\'' + it.nombre.replace(/[\'\\\\]/g,'') + '\')">🔍</button>' +
-        '</div></td>' +
-        '</tr>' +
-        '<tr id="' + rowId + '" style="display:none"><td colspan="5" style="padding:0;background:var(--bg3)">' +
-          '<div class="stk-detalle" style="padding:0 14px"></div>' +
-        '</td></tr>';
+    // ── Agrupar por subsección ──
+    const grupos = {};
+    items.forEach(function(it) {
+      const sub = it.subseccion || 'Sin categoría';
+      if (!grupos[sub]) grupos[sub] = [];
+      grupos[sub].push(it);
     });
+    const subKeys = Object.keys(grupos).sort(function(a,b){ return a.localeCompare(b, 'es'); });
+    const tieneSubs = subKeys.length > 1 || (subKeys.length === 1 && subKeys[0] !== 'Sin categoría' && sec.key !== 'ropacama');
 
-    html += '</tbody></table></div></div>';
+    html += '<div style="padding:8px 12px 12px">';
+    subKeys.forEach(function(subNom) {
+      const subItems = grupos[subNom];
+      const subId = sec.key + '::' + subNom.replace(/[^a-zA-Z0-9]/g,'_');
+      const subAbierta = forzarAbiertas || (_stockSubAbiertas[subId] !== false);  // abiertas por defecto
+
+      if (tieneSubs) {
+        const subFlecha = subAbierta ? '▼' : '▶';
+        html += '<div onclick="toggleStockSub(\'' + subId + '\')" style="cursor:pointer;display:flex;align-items:center;gap:6px;' +
+          'padding:8px 10px;margin:6px 0 4px;background:rgba(224,92,26,.06);border-radius:6px;user-select:none">' +
+          '<span style="color:var(--text3);font-size:11px">' + subFlecha + '</span>' +
+          '<span style="font-size:11px;font-weight:700;color:var(--blue2);letter-spacing:.5px">' + subNom + '</span>' +
+          '<span style="font-size:11px;color:var(--text3)">(' + subItems.length + ')</span>' +
+          '</div>';
+        if (!subAbierta) return;
+      }
+
+      html += '<div style="overflow-x:auto"><table class="tbl"><thead><tr>' +
+        '<th>Artículo</th><th style="text-align:center;width:90px">Stock</th>' +
+        '<th style="text-align:center;width:80px">Estado</th>' +
+        '<th style="text-align:center;width:120px">Tipo</th>' +
+        '<th style="text-align:right;width:170px"></th>' +
+        '</tr></thead><tbody>';
+
+      subItems.sort(function(a,b){ return a.nombre.localeCompare(b.nombre, 'es'); }).forEach(function(it, i) {
+        html += stockRowHTML(it, sec.key, subId + '-' + i, isReader);
+      });
+
+      html += '</tbody></table></div>';
+    });
+    html += '</div></div>';
   });
 
   if (!totalShown) {
@@ -5369,11 +5430,111 @@ function renderStockGlobal() {
 }
 
 var _stockSecAbiertas = {};
+var _stockSubAbiertas = {};
 var _stockSecInit = false;
 function toggleStockSec(secKey) {
   if (!_stockSecAbiertas) _stockSecAbiertas = {};
   _stockSecAbiertas[secKey] = !_stockSecAbiertas[secKey];
   renderStockGlobal();
+}
+function toggleStockSub(subId) {
+  if (!_stockSubAbiertas) _stockSubAbiertas = {};
+  // Por defecto abiertas (undefined = abierta), así que el primer toggle la cierra
+  _stockSubAbiertas[subId] = (_stockSubAbiertas[subId] === false) ? true : false;
+  renderStockGlobal();
+}
+
+// Cuando se cambia la sección, llenar el filtro de subsecciones disponibles
+function stockSeccionCambiada() {
+  const secKey = (document.getElementById('stockSeccionFiltro') || {value:''}).value;
+  const subSel = document.getElementById('stockSubseccionFiltro');
+  if (!subSel) { renderStockGlobal(); return; }
+
+  if (!secKey) {
+    subSel.style.display = 'none';
+    subSel.value = '';
+    renderStockGlobal();
+    return;
+  }
+
+  // Recolectar subsecciones de la sección elegida
+  var subs = {};
+  function addSubs(arr, getSub) {
+    (arr || []).forEach(function(x){ var s = getSub(x) || 'Sin categoría'; subs[s] = true; });
+  }
+  if (secKey === 'articulos') addSubs(state.articulos, function(a){ return a.categoria; });
+  else if (secKey === 'indumentaria') addSubs((state.ropa&&state.ropa.prendas||[]).filter(function(p){return (p.grupo||'indumentaria')==='indumentaria';}), function(p){ return p.categoria; });
+  else if (secKey === 'epp') addSubs((state.ropa&&state.ropa.prendas||[]).filter(function(p){return p.grupo==='epp';}), function(p){ return p.categoria; });
+  else if (secKey === 'herramientas') addSubs(state.herramientas&&state.herramientas.items, function(h){ return h.area; });
+  else if (secKey === 'insumos') {
+    (state.insumos&&state.insumos.items||[]).forEach(function(i){
+      var area = (state.insumos.areas||[]).find(function(a){ return a.id===i.areaId; });
+      subs[area?area.nombre:'Sin área'] = true;
+    });
+  }
+  else if (secKey === 'aguagas') { subs['💧 Agua'] = true; subs['🔥 Gas'] = true; }
+
+  var keys = Object.keys(subs).sort(function(a,b){ return a.localeCompare(b,'es'); });
+  if (keys.length <= 1) {
+    subSel.style.display = 'none';
+    subSel.value = '';
+  } else {
+    subSel.innerHTML = '<option value="">Todas las subsecciones</option>' +
+      keys.map(function(k){ return '<option value="' + k + '">' + k + '</option>'; }).join('');
+    subSel.style.display = '';
+    subSel.value = '';
+  }
+  renderStockGlobal();
+}
+
+// Genera una fila de la tabla de Stock Global (con su fila de detalle)
+function stockRowHTML(it, secKey, rowKey, isReader) {
+  const stColor = it.status === 'green' ? 'var(--green2)' : it.status === 'yellow' ? 'var(--yellow2)' : 'var(--red2)';
+  const stLabel = it.status === 'green' ? 'OK' : it.status === 'yellow' ? 'Bajo' : 'Sin stock';
+  const rowId = 'stkrow-' + rowKey;
+  const ubicJson = encodeURIComponent(JSON.stringify(it.ubicaciones));
+  const tipo = stockTipoDe(it.key, secKey);
+  const esStock = (tipo === 'stock');
+  const reservado = reservasActivasDe(it.key);
+  const disponible = Math.max(0, it.total - reservado);
+
+  let tipoCell;
+  if (isReader) {
+    tipoCell = esStock
+      ? '<span class="badge" style="background:var(--blue2)18;color:var(--blue2);border:1px solid var(--blue2)40">📦 Stock</span>'
+      : '<span class="badge" style="background:var(--yellow2)18;color:var(--yellow2);border:1px solid var(--yellow2)40">🏛 Patrimonial</span>';
+  } else {
+    tipoCell = '<select class="form-control" style="font-size:11px;padding:3px 6px;width:120px" ' +
+      'onchange="stockSetTipo(\'' + it.key + '\', this.value)">' +
+      '<option value="stock"' + (esStock?' selected':'') + '>📦 Stock</option>' +
+      '<option value="patrimonial"' + (!esStock?' selected':'') + '>🏛 Patrimonial</option>' +
+      '</select>';
+  }
+
+  let reservarBtn = '';
+  if (esStock) {
+    reservarBtn = '<button class="btn btn-primary btn-sm reader-ok" ' +
+      (disponible <= 0 ? 'disabled style="opacity:.4"' : '') +
+      ' onclick="abrirReservaArticulo(\'' + it.key + '\',\'' + it.nombre.replace(/[\'\\\\]/g,'') + '\',' + disponible + ',\'' + it.unidad + '\')">🛒 Reservar</button>';
+  }
+
+  return '<tr>' +
+    '<td><strong>' + it.nombre + '</strong>' +
+      (reservado > 0 ? '<div style="font-size:10px;color:var(--yellow2)">' + reservado + ' reservado(s) · ' + disponible + ' disp.</div>' : '') +
+    '</td>' +
+    '<td style="text-align:center">' +
+      '<span style="font-family:\'Barlow Condensed\',sans-serif;font-size:20px;font-weight:700">' + it.total + '</span>' +
+      '<span style="color:var(--text3);font-size:11px"> ' + it.unidad + '</span></td>' +
+    '<td style="text-align:center"><span class="badge" style="background:' + stColor + '18;color:' + stColor + ';border:1px solid ' + stColor + '40">' + stLabel + '</span></td>' +
+    '<td style="text-align:center">' + tipoCell + '</td>' +
+    '<td style="text-align:right"><div style="display:flex;gap:5px;justify-content:flex-end;flex-wrap:wrap">' +
+      reservarBtn +
+      '<button class="btn btn-secondary btn-sm reader-ok" onclick="stockConsultar(this,\'' + ubicJson + '\',\'' + it.nombre.replace(/[\'\\\\]/g,'') + '\')">🔍</button>' +
+    '</div></td>' +
+    '</tr>' +
+    '<tr id="' + rowId + '" style="display:none"><td colspan="5" style="padding:0;background:var(--bg3)">' +
+      '<div class="stk-detalle" style="padding:0 14px"></div>' +
+    '</td></tr>';
 }
 
 // ── Tipo de stock: 'stock' (reservable) o 'patrimonial' ──
@@ -5726,20 +5887,20 @@ function abrirReservaArticulo(itemKey, nombre, disponible, unidad) {
         '<div style="background:rgba(74,159,216,.1);border:1px solid rgba(74,159,216,.3);border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:var(--blue2)">' +
           'Disponible para reservar: <strong>' + disponible + ' ' + unidad + '</strong></div>' +
         '<div class="form-group"><label class="form-label">Tu nombre / sector *</label>' +
-          '<input type="text" class="form-control" id="resvSolicitante" placeholder="Ej: Juan Pérez — Taller"></div>' +
+          '<input type="text" class="form-control reader-ok" id="resvSolicitante" placeholder="Ej: Juan Pérez — Taller"></div>' +
         '<div class="form-row">' +
           '<div class="form-group"><label class="form-label">Cantidad *</label>' +
-            '<input type="number" class="form-control" id="resvCantidad" value="1" min="1" max="' + disponible + '"></div>' +
+            '<input type="number" class="form-control reader-ok" id="resvCantidad" value="1" min="1" max="' + disponible + '"></div>' +
           '<div class="form-group"><label class="form-label">N° SC (opcional)</label>' +
-            '<input type="text" class="form-control" id="resvSC" placeholder="Ej: SC-2026-014"></div>' +
+            '<input type="text" class="form-control reader-ok" id="resvSC" placeholder="Ej: SC-2026-014"></div>' +
         '</div>' +
         '<div class="form-group"><label class="form-label">Motivo de la reserva</label>' +
-          '<textarea class="form-control" id="resvMotivo" rows="2" placeholder="Para qué lo necesitás"></textarea></div>' +
+          '<textarea class="form-control reader-ok" id="resvMotivo" rows="2" placeholder="Para qué lo necesitás"></textarea></div>' +
         '<div style="font-size:11px;color:var(--text3)">La reserva queda <strong>pendiente</strong> hasta que el pañolero la apruebe o rechace.</div>' +
       '</div>' +
       '<div class="modal-footer">' +
         '<button class="btn btn-secondary" onclick="closeModal(\'modalReserva\')">Cancelar</button>' +
-        '<button class="btn btn-primary" onclick="confirmarReserva(\'' + itemKey + '\',\'' + nombre.replace(/'/g,"") + '\',' + disponible + ',\'' + unidad + '\')">Reservar</button>' +
+        '<button class="btn btn-primary reader-ok" onclick="confirmarReserva(\'' + itemKey + '\',\'' + nombre.replace(/'/g,"") + '\',' + disponible + ',\'' + unidad + '\')">Reservar</button>' +
       '</div>' +
     '</div></div>';
   var ex = document.getElementById('modalReserva');
@@ -5886,8 +6047,13 @@ function descontarStockPorReserva(r) {
   }
   if (tipo === 'rc') {
     var rc = state.ropacama.items.find(function(x){ return x.id === id; });
-    if (!rc || !rc.estados || (rc.estados.limpio||0) < cant) return false;
-    rc.estados.limpio -= cant; return true;
+    if (!rc) return false;
+    var epcRc = rc.estadosPorCamp || (rc.estados ? { 'base-sj': rc.estados } : {});
+    var cidsRc = Object.keys(epcRc);
+    for (var ri = 0; ri < cidsRc.length; ri++) {
+      if ((epcRc[cidsRc[ri]].limpio||0) >= cant) { epcRc[cidsRc[ri]].limpio -= cant; return true; }
+    }
+    return false;
   }
   if (tipo === 'indumentaria' || tipo === 'epp') {
     var p = state.ropa.prendas.find(function(x){ return x.id === id; });
@@ -7480,23 +7646,82 @@ const ROPACAMA_DEFAULTS = [
   'Toallón',
 ];
 
+var _ropacamaCampActivo = null;
+
 function ropacamaInit() {
+  // Campamentos (pestañas) — comparten estructura con agua y gas conceptualmente
+  if (!state.ropacama.campamentos) state.ropacama.campamentos = [];
+  if (!state.ropacama.campamentos.find(function(c){ return c.id === 'base-sj'; })) {
+    state.ropacama.campamentos.unshift({ id: 'base-sj', nombre: 'Base SJ', fijo: true });
+  }
+  if (!state.ropacama.campamentos.find(function(c){ return c.id === 'la-brea'; })) {
+    state.ropacama.campamentos.push({ id: 'la-brea', nombre: 'Campamento La Brea' });
+  }
+
   if (!state.ropacama.items.length) {
     state.ropacama.items = ROPACAMA_DEFAULTS.map((nombre, i) => ({
       id: 'rc' + (i+1),
       nombre,
-      estados: { limpio: 0, sucio: 0, descarte: 0 },
+      estadosPorCamp: {},
       min: 5,
     }));
     save();
   }
-  // Migrate older items that used flat stock
+  // Migrar items: de estados globales → estadosPorCamp en base-sj
   state.ropacama.items.forEach(function(it) {
-    if (!it.estados) {
-      it.estados = { limpio: it.stock || 0, sucio: 0, descarte: 0 };
+    if (!it.estadosPorCamp) {
+      it.estadosPorCamp = {};
+      if (it.estados) {
+        it.estadosPorCamp['base-sj'] = {
+          limpio: it.estados.limpio || 0,
+          sucio: it.estados.sucio || 0,
+          descarte: it.estados.descarte || 0,
+        };
+      } else if (it.stock) {
+        it.estadosPorCamp['base-sj'] = { limpio: it.stock || 0, sucio: 0, descarte: 0 };
+      }
     }
     if (it.min === undefined) it.min = 5;
   });
+
+  if (!_ropacamaCampActivo || !state.ropacama.campamentos.find(function(c){ return c.id === _ropacamaCampActivo; })) {
+    _ropacamaCampActivo = 'base-sj';
+  }
+}
+
+function rcEstados(item, campId) {
+  campId = campId || _ropacamaCampActivo;
+  if (!item.estadosPorCamp) item.estadosPorCamp = {};
+  if (!item.estadosPorCamp[campId]) item.estadosPorCamp[campId] = { limpio:0, sucio:0, descarte:0 };
+  return item.estadosPorCamp[campId];
+}
+
+function ropacamaAgregarCampamento() {
+  var nombre = prompt('Nombre del nuevo campamento:');
+  if (!nombre || !nombre.trim()) return;
+  nombre = toTitleCase(nombre.trim());
+  state.ropacama.campamentos.push({ id: genId(), nombre: nombre });
+  save();
+  renderRopacama();
+  toast('Campamento "' + nombre + '" agregado', 'success');
+}
+
+function ropacamaEliminarCampamento(campId) {
+  if (campId === 'base-sj') { toast('No se puede eliminar Base SJ', 'error'); return; }
+  var camp = state.ropacama.campamentos.find(function(c){ return c.id === campId; });
+  if (!camp) return;
+  if (!confirm('¿Eliminar el campamento "' + camp.nombre + '"?\nSe perderá su stock registrado.')) return;
+  state.ropacama.campamentos = state.ropacama.campamentos.filter(function(c){ return c.id !== campId; });
+  state.ropacama.items.forEach(function(it){ if (it.estadosPorCamp) delete it.estadosPorCamp[campId]; });
+  if (_ropacamaCampActivo === campId) _ropacamaCampActivo = 'base-sj';
+  save();
+  renderRopacama();
+  toast('Campamento eliminado', 'info');
+}
+
+function ropacamaSetCamp(campId) {
+  _ropacamaCampActivo = campId;
+  renderRopacama();
 }
 
 function renderRopacama() {
@@ -7504,11 +7729,33 @@ function renderRopacama() {
   const div = document.getElementById('ropacamaContent');
   if (!div) return;
   const items = state.ropacama.items || [];
-
-  const criticos = items.filter(i => rcStatus(i) === 'critic').length;
-  const bajos    = items.filter(i => rcStatus(i) === 'low').length;
+  const camps = state.ropacama.campamentos || [];
+  const campId = _ropacamaCampActivo;
+  const campActivo = camps.find(function(c){ return c.id === campId; });
 
   let html = '';
+
+  // ── Pestañas de campamentos ──
+  html += '<div style="display:flex;align-items:center;gap:4px;margin-bottom:18px;border-bottom:2px solid var(--border);flex-wrap:wrap">';
+  camps.forEach(function(c) {
+    var activo = c.id === campId;
+    html += '<button onclick="ropacamaSetCamp(\'' + c.id + '\')" ' +
+      'style="position:relative;padding:10px 18px;border:none;background:' + (activo ? 'var(--bg3)' : 'transparent') + ';' +
+      'color:' + (activo ? 'var(--accent)' : 'var(--text2)') + ';font-weight:' + (activo ? '700' : '500') + ';' +
+      'font-size:13px;cursor:pointer;border-radius:8px 8px 0 0;font-family:inherit;' +
+      'border-bottom:' + (activo ? '2px solid var(--accent)' : '2px solid transparent') + ';margin-bottom:-2px">' +
+      (c.id === 'base-sj' ? '🏢 ' : '⛺ ') + c.nombre +
+      (c.id !== 'base-sj' ? ' <span class="edit-only" onclick="event.stopPropagation();ropacamaEliminarCampamento(\'' + c.id + '\')" style="margin-left:6px;color:var(--text3);font-size:11px" title="Eliminar campamento">✕</span>' : '') +
+      '</button>';
+  });
+  html += '<button class="edit-only" onclick="ropacamaAgregarCampamento()" style="padding:8px 14px;border:1px dashed var(--border);background:transparent;color:var(--accent);font-size:12px;cursor:pointer;border-radius:8px;margin-left:8px;font-family:inherit">+ Agregar campamento</button>';
+  html += '</div>';
+
+  html += '<div style="font-size:12px;color:var(--text3);margin-bottom:14px">Stock de <strong style="color:var(--accent)">' + (campActivo ? campActivo.nombre : '') + '</strong></div>';
+
+  const criticos = items.filter(i => rcStatus(i, campId) === 'critic').length;
+  const bajos    = items.filter(i => rcStatus(i, campId) === 'low').length;
+
   html += '<div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap">' +
     '<div class="card" style="padding:12px 18px;display:flex;align-items:center;gap:12px">' +
       '<span style="font-family:\'Barlow Condensed\',sans-serif;font-size:30px;font-weight:700;color:var(--accent)">' + items.length + '</span>' +
@@ -7533,9 +7780,9 @@ function renderRopacama() {
     '</tr></thead><tbody>';
 
   items.forEach(function(item) {
-    const e = item.estados || { limpio:0, sucio:0, descarte:0 };
-    const total = rcTotal(item);
-    const st = rcStatus(item);
+    const e = rcEstados(item, campId);
+    const total = rcTotal(item, campId);
+    const st = rcStatus(item, campId);
     const stColor = st === 'ok' ? 'var(--green2)' : st === 'low' ? 'var(--yellow2)' : 'var(--red2)';
     const stLabel = st === 'ok' ? '✓ OK' : st === 'low' ? '⚠ Bajo' : '✗ Sin stock';
 
@@ -7567,14 +7814,15 @@ function renderRopacama() {
   div.innerHTML = html;
 }
 
-// ── Ropa de cama helpers ──
-function rcTotal(item) {
-  const e = item.estados || {};
+// ── Ropa de cama helpers (por campamento) ──
+function rcTotal(item, campId) {
+  const e = rcEstados(item, campId);
   return (e.limpio || 0) + (e.sucio || 0) + (e.descarte || 0);
 }
-function rcStatus(item) {
-  // Status based on LIMPIO stock (usable) vs min
-  const limpio = (item.estados && item.estados.limpio) || 0;
+function rcStatus(item, campId) {
+  // Status según stock LIMPIO (usable) vs mínimo, en el campamento
+  const e = rcEstados(item, campId);
+  const limpio = e.limpio || 0;
   if (limpio <= 0) return 'critic';
   if (limpio <= (item.min || 0)) return 'low';
   return 'ok';
@@ -7582,11 +7830,11 @@ function rcStatus(item) {
 function rcAjustar(itemId, estado, delta) {
   const item = state.ropacama.items.find(function(i){ return i.id === itemId; });
   if (!item) return;
-  if (!item.estados) item.estados = { limpio:0, sucio:0, descarte:0 };
-  const cur = item.estados[estado] || 0;
+  const e = rcEstados(item, _ropacamaCampActivo);
+  const cur = e[estado] || 0;
   const next = Math.max(0, cur + delta);
   if (next === cur) return;
-  item.estados[estado] = next;
+  e[estado] = next;
   save();
   renderRopacama();
 }
@@ -7603,7 +7851,7 @@ function ropacamaAgregarItem() {
   if (!nombre || !nombre.trim()) return;
   state.ropacama.items.push({
     id: genId(), nombre: toTitleCase(nombre.trim()),
-    estados: { limpio: 0, sucio: 0, descarte: 0 }, min: 5
+    estadosPorCamp: {}, min: 5
   });
   save();
   renderRopacama();
@@ -11643,10 +11891,14 @@ function mqUpdateHeader(zonaFiltro) {
   /* In reader mode hide all primary/danger action buttons that slipped through */
   body.visitor-mode .btn-primary:not(.reader-ok),
   body.visitor-mode .btn-danger:not(.reader-ok) { display:none !important; }
-  body.visitor-mode input[type="text"],
-  body.visitor-mode input[type="number"],
-  body.visitor-mode select,
-  body.visitor-mode textarea      { pointer-events:none !important; }
+  body.visitor-mode input[type="text"]:not(.reader-ok),
+  body.visitor-mode input[type="number"]:not(.reader-ok),
+  body.visitor-mode select:not(.reader-ok),
+  body.visitor-mode textarea:not(.reader-ok)      { pointer-events:none !important; }
+  /* Los campos dentro del modal de reservas SÍ se pueden usar en modo lector */
+  body.visitor-mode #modalReserva input,
+  body.visitor-mode #modalReserva select,
+  body.visitor-mode #modalReserva textarea { pointer-events:auto !important; }
   body.visitor-mode .nav-item[onclick*="ingresos"],
   body.visitor-mode .nav-item[onclick*="egresos"],
   body.visitor-mode .nav-item[onclick*="traspaso"] { opacity:.4 !important;pointer-events:none !important; }
